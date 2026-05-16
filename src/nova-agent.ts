@@ -60,8 +60,8 @@ export class NovaAgent {
     this.bus = CirculatorySystem.getInstance();
     this.memory = new MemoryStore();
     this.startTime = Date.now();
-    this.foraging = new ForagingSystem(this.personality);
     this.loadPersonality();
+    this.foraging = new ForagingSystem(this.personality);
     this.setupLifecycle();
   }
 
@@ -324,7 +324,7 @@ export class NovaAgent {
 
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
-    this.foraging.start();
+    this.foraging.start(60000); // every 60s
     this.isRunning = true;
     this.bus.pulse('system:boot-complete', { stage: this.stage }, 'NovaAgent');
     console.log(`\n[超体] ❤ Boot complete. Stage: ${this.stage} | Energy: ${this.bus.getEnergyStats().percent}%`);

@@ -42,7 +42,7 @@ input:focus{border-color:#555}
 /* Main */
 #main{flex:1;padding:24px 32px 12px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .main-wrap{max-width:1200px;margin:0 auto;width:100%;flex-shrink:1;overflow-y:auto;min-height:100px}
-.main-chat{flex:1 1 200px;min-height:200px;display:flex;flex-direction:column}
+.main-chat{flex:1 1 300px;min-height:250px;display:flex;flex-direction:column}
 .main-chat .chat-box{background:#131313;border:1px solid #1e1e1e;border-radius:8px;padding:14px;display:flex;flex-direction:column;flex:1;min-height:0}
 .chat-messages{flex:1;overflow-y:auto;font-size:14px;color:#999;padding:6px 0;line-height:1.6}
 .chat-messages div{padding:8px 10px}
@@ -166,8 +166,8 @@ input:focus{border-color:#555}
 <div class="flex" style="justify-content:space-between;font-size:10px;color:#555;margin-top:2px"><span class="t" data-zh="错误" data-en="Err">错误</span> <b id="wEr">0</b><span class="t" data-zh="幻觉" data-en="Hal">幻觉</span> <b id="wHa">0</b><span class="t" data-zh="过时" data-en="Stale">过时</span> <b id="wSt">0</b></div></div>
 <div class="card fw"><div class="ct"><span class="t" data-zh="🌱 成长" data-en="🌱 Growth">🌱 成长</span></div><div class="stages" id="sR"></div></div>
 <div class="card fw"><div class="ct"><span class="t" data-zh="🧬 系统" data-en="🧬 Systems">🧬 系统</span></div><div class="sg" id="sG"></div></div>
-<div class="card"><div class="ct"><span class="t" data-zh="🎭 人格" data-en="🎭 Personality">🎭 人格</span></div><div id="pD"></div></div>
-<div class="card"><div class="ct"><span class="t" data-zh="📊 指标" data-en="📊 Metrics">📊 指标</span></div><div id="mD" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#666"></div></div>
+<div class="card" style="display:none"><div class="ct"><span class="t" data-zh="🎭 人格" data-en="🎭 Personality">🎭 人格</span></div><div id="pD"></div></div>
+<div class="card" style="display:none"><div class="ct"><span class="t" data-zh="📊 指标" data-en="📊 Metrics">📊 指标</span></div><div id="mD" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#666"></div></div>
 <div class="card fw"><div class="ct"><span class="t" data-zh="⚡ 升级" data-en="⚡ Upgrades">⚡ 升级</span></div><div id="uD"></div></div>
 </div>
 </div>

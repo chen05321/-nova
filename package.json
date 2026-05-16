@@ -1,0 +1,20 @@
+{
+  "name": "hermes-framework",
+  "version": "0.1.0",
+  "description": "Self-evolving AI framework based on human body systems metaphor",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "events": "^3.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}

@@ -10,6 +10,7 @@ import { ReproductiveSystem } from './reproductive-system';
 import { System } from './system';
 import { MemoryStore } from './memory';
 import { ForagingSystem } from './foraging';
+import { SelfLearningSystem } from './learning';
 
 interface StageRequirement {
   actionsRequired: number;
@@ -31,6 +32,7 @@ export class NovaAgent {
   public bus: CirculatorySystem;
   public memory: MemoryStore;
   public foraging: ForagingSystem;
+  public learning: SelfLearningSystem;
   private systems: Map<string, System> = new Map();
   private stage: GrowthStage = GrowthStage.NEWBORN;
   private transitions: LifecycleTransition[] = [];
@@ -62,6 +64,7 @@ export class NovaAgent {
     this.startTime = Date.now();
     this.loadPersonality();
     this.foraging = new ForagingSystem(this.personality);
+    this.learning = new SelfLearningSystem();
     this.setupLifecycle();
   }
 
@@ -325,6 +328,8 @@ export class NovaAgent {
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
     this.foraging.start(60000); // every 60s
+    // Deep learning: every 30 minutes
+    setInterval(() => this.learning.learnCycle(), 1800000);
     this.isRunning = true;
     this.bus.pulse('system:boot-complete', { stage: this.stage }, 'NovaAgent');
     console.log(`\n[超体] ❤ Boot complete. Stage: ${this.stage} | Energy: ${this.bus.getEnergyStats().percent}%`);

@@ -35,7 +35,8 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           upgrades: agent.Upgrades.map((u: any) => u.name),
           availableUpgrades: agent.getAvailableUpgrades().map((u: any) => ({ id: u.id, name: u.name, description: u.description, cost: u.cost })),
           wisdom: agent.Wisdom, personality: agent.Personality,
-          foraging: agent.foraging.getStats()
+          foraging: agent.foraging.getStats(),
+          learning: agent.learning.getStats()
         });
         return;
       }

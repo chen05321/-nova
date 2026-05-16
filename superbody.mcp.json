@@ -1,0 +1,7 @@
+{
+  "puppeteer": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+    "description": "浏览器控制 — 打开网页、截图、点击、填表"
+  }
+}

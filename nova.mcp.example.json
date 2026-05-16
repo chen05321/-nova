@@ -1,0 +1,15 @@
+{
+  "filesystem": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+    "description": "安全的文件系统操作"
+  },
+  "github": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": {
+      "GITHUB_TOKEN": "your_github_token_here"
+    },
+    "description": "GitHub API 操作"
+  }
+}

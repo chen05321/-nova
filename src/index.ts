@@ -1,12 +1,12 @@
-import { HermesAgent } from './hermes-agent';
+import { NovaAgent } from './nova-agent';
 
 async function main() {
   console.log('╔══════════════════════════════════════╗');
-  console.log('║     HERMES - Self-Evolving Agent     ║');
+  console.log('║     超体 - Self-Evolving Agent     ║');
   console.log('║   Framework based on 8 Body Systems  ║');
   console.log('╚══════════════════════════════════════╝\n');
 
-  const agent = new HermesAgent();
+  const agent = new NovaAgent();
   await agent.boot();
 
   // Stage 1: Newborn - Basic interaction
@@ -55,12 +55,12 @@ async function main() {
 
   // Show status
   const status = agent.getStatus();
-  console.log('\n─── HERMES STATUS ───');
+  console.log('\n─── 超体 STATUS ───');
   console.log(JSON.stringify({
     stage: status.stage,
     uptime: `${(status.uptime / 1000).toFixed(0)}s`,
     actions: status.actionCount,
-    systems: status.biometrics.map(b => ({
+    systems: status.biometrics.map((b: { system: string; status: string; load: number }) => ({
       name: b.system,
       status: b.status,
       load: b.load.toFixed(2)
@@ -75,7 +75,7 @@ async function main() {
   }
 
   console.log(`\nCurrent stage: ${status.stage}`);
-  console.log('HERMES framework is running successfully.');
+  console.log('超体 framework is running successfully.');
 }
 
 main().catch(console.error);

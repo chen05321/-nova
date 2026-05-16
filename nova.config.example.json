@@ -1,0 +1,20 @@
+{
+  "llm": {
+    "fast": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKey": "sk-...",
+      "baseUrl": "https://api.openai.com/v1"
+    },
+    "reflective": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "apiKey": "sk-..."
+    },
+    "deep": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "apiKey": "sk-ant-..."
+    }
+  }
+}

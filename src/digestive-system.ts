@@ -54,7 +54,9 @@ export class DigestiveSystem extends System {
     }
 
     this.nutrientLevel = Math.max(0, this.nutrientLevel - 0.05);
-    this.log(`Digested ${batch.length} knowledge fragments (nutrient: ${this.nutrientLevel.toFixed(2)})`);
+    // Digestion produces energy — knowledge is the "food"
+    this.produceEnergy(batch.length * 2);
+    this.log(`Digested ${batch.length} knowledge fragments → +${batch.length * 2} energy`);
   }
 
   recall(query: string, limit = 5): KnowledgeFragment[] {

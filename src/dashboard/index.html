@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>超体 Nova — 生命体征看板</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e17;color:#e0e6f0;min-height:100vh;padding:20px}
+  .grid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+  /* Top banner full width */
+  .banner{grid-column:1/-1;background:linear-gradient(135deg,#111827,#1a2332);border-radius:16px;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.06)}
+  .banner-left{display:flex;align-items:center;gap:24px}
+  .logo{font-size:28px;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .logo span{-webkit-text-fill-color:#e0e6f0;font-weight:400;font-size:14px;margin-left:8px}
+  .heartbeat{width:48px;height:48px;position:relative}
+  .heartbeat .dot{width:16px;height:16px;border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:all 0.3s}
+  .heartbeat .pulse-ring{width:48px;height:48px;border-radius:50%;position:absolute;top:0;left:0;animation:pulse 1.5s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(0.3);opacity:0.6}100%{transform:scale(1.3);opacity:0}}
+  .heartbeat.alive .dot{background:#22c55e;box-shadow:0 0 20px rgba(34,197,94,0.5)}
+  .heartbeat.alive .pulse-ring{border:2px solid #22c55e}
+  .heartbeat.warning .dot{background:#eab308;box-shadow:0 0 20px rgba(234,179,8,0.5)}
+  .heartbeat.critical .dot{background:#ef4444;box-shadow:0 0 20px rgba(239,68,68,0.5)}
+
+  .banner-stats{display:flex;gap:32px}
+  .stat{text-align:center}
+  .stat-value{font-size:22px;font-weight:600;color:#f0f4ff}
+  .stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+
+  /* Cards */
+  .card{background:linear-gradient(135deg,#111827,#1a2332);border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.06)}
+  .card-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+  /* Energy */
+  .energy-bar{height:24px;background:#1e293b;border-radius:12px;overflow:hidden;position:relative;margin-bottom:8px}
+  .energy-fill{height:100%;border-radius:12px;transition:width 0.8s ease;background:linear-gradient(90deg,#22c55e,#60a5fa)}
+  .energy-fill.low{background:linear-gradient(90deg,#eab308,#f97316)}
+  .energy-fill.critical{background:linear-gradient(90deg,#ef4444,#dc2626)}
+  .energy-text{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)}
+  .energy-labels{display:flex;justify-content:space-between;font-size:11px;color:#64748b}
+
+  /* Waste */
+  .waste-bar{height:12px;background:#1e293b;border-radius:6px;overflow:hidden;margin-bottom:4px}
+  .waste-fill{height:100%;border-radius:6px;transition:width 1s ease}
+  .waste-fill.safe{background:#22c55e}
+  .waste-fill.warning{background:#eab308}
+  .waste-fill.danger{animation:wastePulse 1s ease-in-out infinite}
+  .waste-fill.danger{background:linear-gradient(90deg,#eab308,#ef4444)}
+  @keyframes wastePulse{0%,100%{opacity:1}50%{opacity:0.7}}
+
+  /* Stage lifecycle */
+  .stages{display:flex;align-items:center;gap:4px;margin-top:8px}
+  .stage-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;background:#1e293b;color:#475569;transition:all 0.5s}
+  .stage-dot.active{background:linear-gradient(135deg,#60a5fa,#a78bfa);color:#fff;box-shadow:0 0 12px rgba(96,165,250,0.4)}
+  .stage-line{width:16px;height:2px;background:#1e293b}
+  .stage-line.active{background:#60a5fa}
+
+  /* System cards grid */
+  .systems-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .sys-card{padding:16px;border-radius:10px;background:linear-gradient(135deg,#111827,#1a2332);border:1px solid rgba(255,255,255,0.04)}
+  .sys-icon{font-size:20px;margin-bottom:4px}
+  .sys-name{font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:4px}
+  .sys-status{font-size:11px;margin-bottom:6px}
+  .sys-load-bg{height:4px;background:#1e293b;border-radius:2px;overflow:hidden}
+  .sys-load-fill{height:100%;border-radius:2px;transition:width 0.5s}
+  .sys-load-fill.good{background:#22c55e}
+  .sys-load-fill.warn{background:#eab308}
+  .sys-load-fill.bad{background:#ef4444}
+
+  /* Hormones */
+  .hormone-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .hormone-label{width:80px;font-size:12px;color:#94a3b8;text-align:right}
+  .hormone-bar-bg{flex:1;height:10px;background:#1e293b;border-radius:5px;overflow:hidden}
+  .hormone-bar-fill{height:100%;border-radius:5px;transition:width 0.5s}
+  .hormone-value{width:30px;font-size:11px;color:#64748b;text-align:right}
+
+  /* Personality radar placeholder */
+  .personality-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .trait-row{display:flex;align-items:center;gap:6px}
+  .trait-label{font-size:11px;color:#94a3b8;width:70px}
+  .trait-bar{flex:1;height:6px;background:#1e293b;border-radius:3px;overflow:hidden}
+  .trait-fill{height:100%;border-radius:3px;transition:width 0.8s;background:linear-gradient(90deg,#a78bfa,#60a5fa)}
+
+  /* Upgrades */
+  .upgrade-item{font-size:12px;color:#94a3b8;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .upgrade-item:last-child{border:none}
+
+  /* Mode badge */
+  .mode-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+  .mode-badge.critical{background:rgba(239,68,68,0.2);color:#ef4444}
+  .mode-badge.low{background:rgba(234,179,8,0.2);color:#eab308}
+  .mode-badge.normal{background:rgba(34,197,94,0.2);color:#22c55e}
+  .mode-badge.surplus{background:rgba(96,165,250,0.2);color:#60a5fa}
+
+  .full{grid-column:1/-1}
+
+  @media(max-width:900px){
+    .grid{grid-template-columns:1fr}
+    .systems-grid{grid-template-columns:repeat(2,1fr)}
+    .banner{flex-direction:column;gap:16px}
+    .banner-stats{gap:16px}
+  }
+</style>
+</head>
+<body>
+<div class="grid" id="app">
+  <!-- Banner -->
+  <div class="banner">
+    <div class="banner-left">
+      <div class="heartbeat alive" id="heartIcon">
+        <div class="pulse-ring"></div>
+        <div class="dot"></div>
+      </div>
+      <div>
+        <div class="logo">超体 <span>Nova</span></div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Self-Evolving AI · 自进化智能体</div>
+      </div>
+    </div>
+    <div class="banner-stats">
+      <div class="stat"><div class="stat-value" id="stage">NEWBORN</div><div class="stat-label">成长阶段</div></div>
+      <div class="stat"><div class="stat-value" id="wisdom">0</div><div class="stat-label">智慧</div></div>
+      <div class="stat"><div class="stat-value" id="heartRate">60</div><div class="stat-label">心率 bpm</div></div>
+      <div class="stat"><div class="stat-value" id="beatCount">0</div><div class="stat-label">总心跳</div></div>
+    </div>
+  </div>
+
+  <!-- Energy -->
+  <div class="card">
+    <div class="card-title">⚡ 能量</div>
+    <div class="energy-bar"><div class="energy-fill" id="energyFill" style="width:50%"><span class="energy-text" id="energyText">50%</span></div></div>
+    <div class="energy-labels"><span>0</span><span id="energyMode" class="mode-badge normal">NORMAL</span><span id="energyMax">100</span></div>
+  </div>
+
+  <!-- Waste -->
+  <div class="card">
+    <div class="card-title">☠ 认知废物</div>
+    <div class="waste-bar"><div class="waste-fill safe" id="wasteFill" style="width:0%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b">
+      <span>错误: <b id="wasteError">0</b></span>
+      <span>幻觉: <b id="wasteHall">0</b></span>
+      <span>过时: <b id="wasteStale">0</b></span>
+    </div>
+  </div>
+
+  <!-- Growth Lifecycle -->
+  <div class="card full">
+    <div class="card-title">🌱 成长路径</div>
+    <div class="stages" id="stages"></div>
+  </div>
+
+  <!-- 8 Systems -->
+  <div class="card full" style="padding-bottom:8px">
+    <div class="card-title">🧬 八大系统</div>
+    <div class="systems-grid" id="systemsGrid"></div>
+  </div>
+
+  <!-- Hormones -->
+  <div class="card">
+    <div class="card-title">🧪 激素水平</div>
+    <div id="hormones"></div>
+  </div>
+
+  <!-- Personality + Upgrades -->
+  <div class="card">
+    <div class="card-title">🎭 人格向量</div>
+    <div class="personality-grid" id="personality"></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
+      <div class="card-title" style="margin-bottom:8px">⚡ 已升级</div>
+      <div id="upgrades"><div style="font-size:12px;color:#64748b">暂无</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STAGE_ICONS = { NEWBORN:'🍼', CHILD:'🧒', ADOLESCENT:'🧑', ADULT:'🧑‍💼', MATURE:'🧙', ELDER:'👴' };
+const SYS_ICONS = { Nervous:'🧠', Musculoskeletal:'💪', Endocrine:'🧪', Respiratory:'🌬️', Digestive:'🧬', Urinary:'🚽', Reproductive:'🫄', Circulatory:'❤️' };
+const ALL_STAGES = ['NEWBORN','CHILD','ADOLESCENT','ADULT','MATURE','ELDER'];
+
+function initStages() {
+  const c = document.getElementById('stages');
+  c.innerHTML = ALL_STAGES.map((s,i) => `
+    ${i>0?'<div class="stage-line" id="sl_'+s+'"></div>':''}
+    <div class="stage-dot" id="sd_'+s+'" title="'+s+'">${STAGE_ICONS[s]||s[0]}</div>
+  `).join('');
+}
+
+function initSystems() {
+  const names = ['Nervous','Musculoskeletal','Endocrine','Respiratory','Digestive','Urinary','Reproductive','Circulatory'];
+  const c = document.getElementById('systemsGrid');
+  c.innerHTML = names.map(n => `
+    <div class="sys-card">
+      <div class="sys-icon">${SYS_ICONS[n]||'?'}</div>
+      <div class="sys-name">${n}</div>
+      <div class="sys-status" id="sys_status_${n}">-</div>
+      <div class="sys-load-bg"><div class="sys-load-fill good" id="sys_load_${n}" style="width:0%"></div></div>
+    </div>
+  `).join('');
+}
+
+function update(data) {
+  // Heart
+  const hi = document.getElementById('heartIcon');
+  const pct = data.energy.percent;
+  hi.className = 'heartbeat alive' + (pct<20?' critical':pct<40?' warning':'');
+  document.getElementById('heartRate').textContent = data.heart.heartRate;
+  document.getElementById('beatCount').textContent = data.heart.beat;
+
+  // Stage
+  document.getElementById('stage').textContent = data.stage;
+
+  // Energy
+  const ef = document.getElementById('energyFill');
+  ef.style.width = data.energy.percent + '%';
+  ef.className = 'energy-fill' + (pct<20?' critical':pct<40?' low':'');
+  document.getElementById('energyText').textContent = data.energy.percent + '%';
+  document.getElementById('energyMax').textContent = data.energy.max;
+  const em = document.getElementById('energyMode');
+  em.textContent = data.energy.mode;
+  em.className = 'mode-badge ' + data.energy.mode;
+
+  // Waste
+  const wf = document.getElementById('wasteFill');
+  const wpct = data.waste.total;
+  wf.style.width = wpct + '%';
+  wf.className = 'waste-fill ' + (wpct>70?'danger':wpct>40?'warning':'safe');
+  document.getElementById('wasteError').textContent = data.waste.e;
+  document.getElementById('wasteHall').textContent = data.waste.h;
+  document.getElementById('wasteStale').textContent = data.waste.s;
+
+  // Wisdom
+  document.getElementById('wisdom').textContent = data.wisdom;
+
+  // Stages
+  const idx = ALL_STAGES.indexOf(data.stage);
+  ALL_STAGES.forEach((s,i)=>{
+    const dot = document.getElementById('sd_'+s);
+    if(dot) dot.className = 'stage-dot' + (i<=idx?' active':'');
+    const line = document.getElementById('sl_'+s);
+    if(line) line.className = 'stage-line' + (i<=idx?' active':'');
+  });
+
+  // Systems
+  (data.systems||[]).forEach(s => {
+    const st = document.getElementById('sys_status_'+s.name);
+    if(st) st.textContent = s.status;
+    const ld = document.getElementById('sys_load_'+s.name);
+    if(ld) {
+      ld.style.width = s.load + '%';
+      ld.className = 'sys-load-fill ' + (s.load>70?'bad':s.load>40?'warn':'good');
+    }
+  });
+
+  // Hormones
+  if(data.personality) {
+    // Use personality as hormone display for now
+    const keys = Object.keys(data.personality);
+    const colors = ['#60a5fa','#a78bfa','#f472b6','#34d399','#fbbf24'];
+    const c = document.getElementById('hormones');
+    c.innerHTML = keys.map((k,i) => `
+      <div class="hormone-row">
+        <div class="hormone-label">${k}</div>
+        <div class="hormone-bar-bg"><div class="hormone-bar-fill" style="width:${data.personality[k]*100}%;background:${colors[i%colors.length]}"></div></div>
+        <div class="hormone-value">${Math.round(data.personality[k]*100)}%</div>
+      </div>
+    `).join('');
+  }
+
+  // Personality
+  if(data.personality) {
+    const c = document.getElementById('personality');
+    c.innerHTML = Object.entries(data.personality).map(([k,v]) => `
+      <div class="trait-row" style="grid-column:1/-1">
+        <div class="trait-label">${k}</div>
+        <div class="trait-bar"><div class="trait-fill" style="width:${Math.round(v*100)}%"></div></div>
+        <div style="font-size:11px;color:#64748b;width:28px;text-align:right">${Math.round(v*100)}%</div>
+      </div>
+    `).join('');
+  }
+
+  // Upgrades
+  const uc = document.getElementById('upgrades');
+  if(data.upgrades && data.upgrades.length) {
+    uc.innerHTML = data.upgrades.map(u => `<div class="upgrade-item">✅ ${u}</div>`).join('');
+  }
+}
+
+async function poll() {
+  try {
+    const r = await fetch('/api/status');
+    const data = await r.json();
+    update(data);
+  } catch(e) {}
+}
+
+initStages();
+initSystems();
+setInterval(poll, 1000);
+poll();
+</script>
+</body>
+</html>

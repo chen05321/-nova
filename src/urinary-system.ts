@@ -47,8 +47,11 @@ export class UrinarySystem extends System {
     this.toxinLevel = Math.max(0, this.toxinLevel - 0.15);
 
     if (pruned > 0) {
+      this.produceEnergy(2);
       this.bus.pulse('memory:purged', { pruned, remaining: this.shortTermMemory.size }, this.name);
-      this.log(`Filtered ${pruned} low-importance memories (toxin: ${this.toxinLevel.toFixed(2)})`);
+      this.log(`Filtered ${pruned} low-importance memories → +2 energy`);
+    } else {
+      this.consumeEnergy(1);
     }
 
     if (this.toxinLevel > 0.8) {

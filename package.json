@@ -1,20 +1,44 @@
 {
-  "name": "hermes-framework",
+  "name": "nova",
   "version": "0.1.0",
-  "description": "Self-evolving AI framework based on human body systems metaphor",
+  "description": "超体 - Self-evolving AI agent based on human body systems metaphor",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+  "bin": {
+    "hermes": "./dist/cli/index.js"
   },
+  "scripts": {
+    "build": "tsc && cp src/dashboard/dashboard.html dist/dashboard/",
+    "start": "node dist/cli/index.js",
+    "dev": "npx tsx src/cli/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai-agent",
+    "self-evolving",
+    "framework",
+    "llm",
+    "autonomous"
+  ],
+  "license": "MIT",
+  "files": [
+    "dist/",
+    "nova.config.example.json",
+    "nova.mcp.example.json",
+    "README.md"
+  ],
   "dependencies": {
-    "events": "^3.3.0"
+    "@anthropic-ai/sdk": "^0.36.0",
+    "@modelcontextprotocol/server-puppeteer": "^2025.5.12",
+    "dotenv": "^16.4.0",
+    "events": "^3.3.0",
+    "openai": "^4.83.0",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "ts-node": "^10.9.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.19.41",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.22.0",
+    "typescript": "^5.9.3"
   }
 }

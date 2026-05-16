@@ -30,23 +30,29 @@ export class MusculoskeletalSystem extends System {
     if (!decision) return;
 
     this.activeActions++;
-    this.log(`Executing action: ${decision}`);
+    this.log(`Evaluating action need from response`);
 
-    const tool = this.findBestTool(decision);
-    if (tool) {
-      try {
-        tool.usageCount++;
-        await tool.handler(decision);
-        tool.successRate = (tool.successRate * (tool.usageCount - 1) + 1) / tool.usageCount;
-        this.actionHistory.push({ tool: tool.name, success: true, timestamp: Date.now() });
-        this.bus.pulse('action:completed', { tool: tool.name, success: true }, this.name);
-      } catch {
-        tool.successRate = (tool.successRate * (tool.usageCount - 1)) / tool.usageCount;
-        this.actionHistory.push({ tool: tool.name, success: false, timestamp: Date.now() });
-        this.bus.pulse('action:failed', { tool: tool.name }, this.name);
+    // Check if the response explicitly requests a tool
+    const toolMatch = decision.match(/USE_TOOL:\s*(\w+)\s*(?:\nARGS:\s*(\{[^}]+\}))?/);
+    if (toolMatch) {
+      const toolName = toolMatch[1];
+      const tool = this.tools.get(toolName);
+      if (tool) {
+        try {
+          tool.usageCount++;
+          const args = toolMatch[2] ? JSON.parse(toolMatch[2]) : decision;
+          await tool.handler(typeof args === 'string' ? args : JSON.stringify(args));
+          tool.successRate = (tool.successRate * (tool.usageCount - 1) + 1) / tool.usageCount;
+          this.actionHistory.push({ tool: tool.name, success: true, timestamp: Date.now() });
+          this.bus.pulse('action:completed', { tool: tool.name, success: true }, this.name);
+        } catch {
+          tool.successRate = (tool.successRate * (tool.usageCount - 1)) / tool.usageCount;
+          this.actionHistory.push({ tool: tool.name, success: false, timestamp: Date.now() });
+          this.bus.pulse('action:failed', { tool: tool.name }, this.name);
+        }
       }
-    } else {
-      this.bus.pulse('action:no-tool', { decision }, this.name);
+    } else if (this.tools.size > 0) {
+      this.bus.pulse('action:no-tool', { decision: decision.substring(0, 100) }, this.name);
     }
 
     this.activeActions--;
@@ -57,7 +63,7 @@ export class MusculoskeletalSystem extends System {
     let bestScore = -1;
 
     for (const tool of this.tools.values()) {
-      const relevance = tool.description.includes(decision) ? 1 : 0;
+      const relevance = (tool.description && tool.description.includes(decision)) ? 1 : 0;
       const score = relevance * 0.6 + tool.successRate * 0.4;
       if (score > bestScore) {
         bestScore = score;

@@ -38,6 +38,12 @@ export class EndocrineSystem extends System {
     hormone.level = Math.min(1, Math.max(0, hormone.level + delta));
 
     if (delta > 0) {
+      // Hormones affect energy
+      if (type === 'adrenaline') this.bus.produceEnergy('EndocrineSystem', 5);
+      if (type === 'cortisol') this.bus.consumeEnergy('EndocrineSystem', 3);
+      if (type === 'dopamine') this.bus.produceEnergy('EndocrineSystem', 2);
+      if (type === 'serotonin') this.bus.produceEnergy('EndocrineSystem', 1);
+
       this.bus.pulse('hormone:shift', { type, level: hormone.level, source: this.name }, this.name);
       this.log(`Hormone secreted: ${type} → ${hormone.level.toFixed(2)}`);
     }
@@ -54,6 +60,11 @@ export class EndocrineSystem extends System {
   }
 
   private metabolizeHormones(): void {
+    // Successful regulation produces a small amount of energy
+    const stressed = Array.from(this.hormones.values()).some(h => h.level > 0.7);
+    if (!stressed) {
+      this.produceEnergy(1);
+    }
     for (const [name, hormone] of this.hormones) {
       if (hormone.level > hormone.baseline) {
         hormone.level = Math.max(hormone.baseline, hormone.level - hormone.decayRate);

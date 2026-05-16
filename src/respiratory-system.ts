@@ -75,6 +75,13 @@ export class RespiratorySystem extends System {
     this.breathCycle++;
     this.refillBucket();
 
+    // Each breath produces energy (life force from environment)
+    if (this.breathCycle % 5 === 0) {
+      const usage = 1 - (this.bucket.tokens / this.bucket.capacity);
+      const energyGain = Math.round((1 - usage) * 3) + 1;
+      this.produceEnergy(energyGain);
+    }
+
     const usage = 1 - (this.bucket.tokens / this.bucket.capacity);
     if (usage > 0.8) {
       this.bus.pulse('respiratory:shallow', {

@@ -1,0 +1,38 @@
+import { LLMProviderConfig } from '../config';
+
+export interface LLMMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface LLMResponse {
+  content: string;
+  model: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export type StreamCallback = (chunk: string, done: boolean) => void;
+
+export abstract class LLMAdapter {
+  protected config: LLMProviderConfig;
+
+  constructor(config: LLMProviderConfig) {
+    this.config = config;
+  }
+
+  abstract chat(messages: LLMMessage[], systemPrompt?: string): Promise<LLMResponse>;
+
+  abstract chatStream(
+    messages: LLMMessage[],
+    onChunk: StreamCallback,
+    systemPrompt?: string
+  ): Promise<void>;
+
+  getModelName(): string {
+    return this.config.model;
+  }
+}

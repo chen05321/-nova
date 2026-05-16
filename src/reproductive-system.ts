@@ -27,7 +27,12 @@ export class ReproductiveSystem extends System {
   }
 
   private async triggerEvolution(): Promise<void> {
-    this.log('Evolution trigger received');
+    // Evolution costs significant energy
+    if (!this.consumeEnergy(20)) {
+      this.log('Not enough energy to evolve');
+      return;
+    }
+    this.log('Evolution trigger received (consumed 20 energy)');
 
     const mutation: EvolutionMutation = {
       type: this.selectMutationType(),

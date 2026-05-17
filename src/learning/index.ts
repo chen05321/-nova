@@ -88,6 +88,8 @@ export class SelfLearningSystem {
     }
 
     results.push(topic);
+    this.memory.addFact(`[自学] ${topic}`, 'learned', 0.7);
+    if (demo) this.memory.addFact(`[实践] ${topic}: 已生成练习代码`, 'skill', 0.6);
     this.recentLearnings.unshift(`📖 ${topic}: ${knowledge.substring(0, 80)}...`);
     if (this.recentLearnings.length > 20) this.recentLearnings.pop();
     this.bus.pulse('learning:complete', { topic, summary: knowledge.substring(0, 100) }, 'SelfLearningSystem');

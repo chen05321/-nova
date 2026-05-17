@@ -73,7 +73,7 @@ export class ForagingSystem {
 
     if (result.learned.length > 0) {
       for (const fact of result.learned) {
-        this.memory.addFact(fact, 'foraged', 0.5);
+        this.memory.addFact(fact, 'learned', 0.5);
       }
       this.forageCount++;
       this.bus.produceEnergy('ForagingSystem', Math.round(energyCost * 0.6));
@@ -82,6 +82,7 @@ export class ForagingSystem {
         factsLearned: result.learned.length,
         totalForaged: this.forageCount
       }, 'ForagingSystem');
+      this.memory.addFact(`[学习] ${result.topic}`, 'learned', 0.7);
     }
 
     this.lastForageTime = Date.now();
@@ -157,7 +158,7 @@ export class ForagingSystem {
 
     // If nothing learned from external sources, store a note
     if (learned.length === 0) {
-      learned.push(`[curiosity] 对"${topic}"产生了兴趣，待探索`);
+      learned.push(`[探索] 对"${topic}"产生了兴趣，待深入`);
     }
 
     return { topic, learned, energyCost: 10, curiositySatisfied: learned.length > 0 };

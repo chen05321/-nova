@@ -168,6 +168,7 @@ input:focus{border-color:#555}
 <div class="card fw"><div class="ct"><span class="t" data-zh="🧬 系统" data-en="🧬 Systems">🧬 系统</span></div><div class="sg" id="sG"></div></div>
 <div class="card" style="display:none"><div class="ct"><span class="t" data-zh="🎭 人格" data-en="🎭 Personality">🎭 人格</span></div><div id="pD"></div></div>
 <div class="card" style="display:none"><div class="ct"><span class="t" data-zh="📊 指标" data-en="📊 Metrics">📊 指标</span></div><div id="mD" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#666"></div></div>
+<div class="card"><div class="ct"><span class="t" data-zh="📚 学习" data-en="📚 Learning">📚 学习</span></div><div id="learnD" style="font-size:12px;color:#999"></div></div>
 <div class="card fw"><div class="ct"><span class="t" data-zh="⚡ 升级" data-en="⚡ Upgrades">⚡ 升级</span></div><div id="uD"></div></div>
 </div>
 </div>
@@ -634,6 +635,11 @@ function up(d){
  (d.systems||[]).forEach(function(s){var st=document.getElementById('ss_'+s.name);if(st)st.textContent=s.status;var sl=document.getElementById('sl_'+s.name);if(sl){sl.style.width=s.load+'%';sl.style.background=s.load>70?'#ef4444':s.load>40?'#eab308':'#00bb7f'}});
  if(d.personality){var c=document.getElementById('pD');c.innerHTML=Object.keys(d.personality).map(function(k){return'<div class="tr"><span class="lb">'+k+'</span><div class="tb"><div class="tf" style="width:'+(d.personality[k]*100)+'%"></div></div><span style="font-size:10px;color:#555;width:20px;text-align:right">'+Math.round(d.personality[k]*100)+'%</span></div>'}).join('')}
  document.getElementById('mD').innerHTML='<span>Beats <b style="color:#bbb">'+d.heart.beat+'</b></span><span>Rate <b style="color:#bbb">'+d.heart.heartRate+'bpm</b></span><span>Actions <b style="color:#bbb">'+d.actions+'</b></span><span>Uptime <b style="color:#bbb">'+(d.uptime?(d.uptime/1000).toFixed(0)+'s':'0')+'</b></span><span>Waste <b style="color:#bbb">'+d.waste.total+'%</b></span><span>Wisdom <b style="color:#bbb">'+d.wisdom+'</b></span>';
+ var lc=document.getElementById('learnD');
+ if(d.learning&&d.learning.recentLearnings&&d.learning.recentLearnings.length){
+  lc.innerHTML='<div style="font-size:10px;color:#555;margin-bottom:4px">已学 '+d.learning.learned+' 项 | 知识图谱 '+d.learning.nodes+' 节点</div>'+
+   d.learning.recentLearnings.slice(0,5).map(function(l){return'<div style="padding:3px 0;border-bottom:1px solid #1a1a1a;font-size:11px;color:#888">'+l+'</div>'}).join('');
+ }else{lc.innerHTML='<div style="font-size:11px;color:#555">学习系统运行中...</div>'}
  var uc=document.getElementById('uD');
  var av=(d.availableUpgrades||[]).filter(function(u){return!(d.upgrades||[]).includes(u.name)});
  if(av.length){uc.innerHTML=av.map(function(u){return'<span class="upg" style="cursor:pointer" onclick="api(\'/api/upgrade?id='+u.id+'\',\'POST\')" title="'+u.description+' (消耗 '+u.cost+' 能量)">⚡ '+u.name+' <span style="font-size:9px;color:#555">'+u.cost+'</span></span>'}).join('')}

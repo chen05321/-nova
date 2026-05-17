@@ -17,7 +17,6 @@ export class NervousSystem extends System {
   private lastToolName = '';
   private lastToolResult = '';
   private processingState: ProcessingState = 'idle';
-  private pendingQueue: (() => void)[] = [];
 
   constructor(memory?: MemoryStore) {
     super();

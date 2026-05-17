@@ -254,7 +254,7 @@ After modifying code, the changes take effect when the server restarts.`;
 
         // Feed result back for final response (or use raw result if LLM fails)
         this.bus.pulse('thought:chunk', { chunk: `\n`, full: '' }, this.name);
-        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nProvide a clear answer based on this result. Be concise.` }];
+        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nAnswer the user's question clearly. Then proactively ask if they want to do something next.` }];
         try {
           fullResponse = '';
           await new Promise<void>((resolve, reject) => {

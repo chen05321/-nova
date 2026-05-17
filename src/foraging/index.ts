@@ -50,6 +50,7 @@ export class ForagingSystem {
 
   private async forage(): Promise<void> {
     if (this.running) return;
+    if ((this as any).agent?.isSleeping) return; // skip if sleeping
     this.running = true;
 
     const energy = this.bus.energyLevel;

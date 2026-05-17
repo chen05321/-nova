@@ -33,6 +33,7 @@ export class NovaAgent {
   public memory: MemoryStore;
   public foraging: ForagingSystem;
   public learning: SelfLearningSystem;
+  public isSleeping = false;
   private systems: Map<string, System> = new Map();
   private stage: GrowthStage = GrowthStage.NEWBORN;
   private transitions: LifecycleTransition[] = [];
@@ -310,6 +311,17 @@ export class NovaAgent {
     this.wisdomScore += 2;
     this.memory.addFact(`upgrade:${upgrade.name}`, 'upgrade', 0.9);
     this.savePersonality();
+
+    // Physically apply upgrade effects to systems
+    if (upgradeId === 'eff_tools' || upgradeId === 'tool_mastery') {
+      const musculo = this.systems.get('MusculoskeletalSystem') as any;
+      if (musculo && musculo.applyGlobalSuccessBonus) musculo.applyGlobalSuccessBonus(0.1);
+    }
+    if (upgradeId === 'eff_resp') {
+      const resp = this.systems.get('RespiratorySystem') as any;
+      if (resp && resp.increaseCapacity) resp.increaseCapacity(0.25);
+    }
+
     console.log(`[超体] ⚡ Anabolic upgrade: ${upgrade.name} (-${upgrade.cost} energy)`);
     return true;
   }
@@ -340,9 +352,20 @@ export class NovaAgent {
 
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
-    this.foraging.start(60000); // every 60s
-    // Deep learning: every 5 minutes
+    this.foraging.start(60000);
     setInterval(() => this.learning.learnCycle(), 300000);
+
+    // Sleep monitor: sleep when energy too low, wake when recovered
+    this.bus.on('heart:beat', () => {
+      const energy = this.bus.energyLevel;
+      if (energy < 15 && !this.isSleeping) {
+        this.isSleeping = true;
+        this.memory.addFact('[睡眠] 能量不足，进入休眠', 'sleep', 0.8);
+      } else if (energy > 60 && this.isSleeping) {
+        this.isSleeping = false;
+        this.memory.addFact('[苏醒] 能量恢复，重新激活', 'sleep', 0.8);
+      }
+    });
     this.isRunning = true;
     this.bus.pulse('system:boot-complete', { stage: this.stage }, 'NovaAgent');
     console.log(`\n[超体] ❤ Boot complete. Stage: ${this.stage} | Energy: ${this.bus.getEnergyStats().percent}%`);

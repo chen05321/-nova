@@ -3,7 +3,7 @@ import { Biometrics, HormoneSignal } from './types';
 import { createLLM, LLMAdapter } from './llm';
 import { loadConfig } from './config';
 import { MemoryStore } from './memory';
-import { getBuiltinTools } from './tools';
+import { ToolRegistry } from './tools';
 
 export type ProcessingState = 'idle' | 'thinking' | 'acting';
 
@@ -229,13 +229,12 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
   }
 
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {
-    const tools = getBuiltinTools();
-    const tool = tools.find(t => t.name === name);
-    if (!tool) return `Tool "${name}" not found.`;
+    const tool = ToolRegistry.find(name);
+    if (!tool) return `Tool "${name}" not found in current musculoskeletal synapse registry.`;
     try {
       const result = await tool.execute(args);
       return result.success ? result.output : `Error: ${result.error}`;
-    } catch (e) { return `Failed: ${e}`; }
+    } catch (e) { return `Failed to dispatch muscle sequence: ${e}`; }
   }
 
   private extractFacts(userMsg: string, response: string): void {

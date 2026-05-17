@@ -1,6 +1,6 @@
 import { CirculatorySystem } from '../event-bus';
 import { NervousSystem } from '../nervous-system';
-import { getBuiltinTools, Tool } from '../tools';
+import { getBuiltinTools, ToolRegistry, Tool } from '../tools';
 import { MemoryStore } from '../memory';
 import { MCPClient, loadMCPConfigs } from '../mcp';
 
@@ -50,6 +50,7 @@ export class AgentLoop {
 
         for (const tool of mcpTools) {
           this.tools.set(tool.name, tool);
+          ToolRegistry.register(tool);
           this.registerToolWithSystem(tool);
         }
 

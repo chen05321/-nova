@@ -119,7 +119,12 @@ export class DeepSeekAdapter extends LLMAdapter {
         }
       }
     } catch (err) {
-      onChunk(String(err), true);
+      const errMsg = String(err);
+      if (!errMsg.includes('JSON') && !errMsg.includes('parse')) {
+        onChunk(`[stream error]`, true);
+      } else {
+        onChunk('', true);
+      }
       return;
     }
 

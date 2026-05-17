@@ -292,6 +292,9 @@ Your self-assessments help improve your code.`;
     if (msg.includes('timeout')) {
       return '[请求超时] LLM 接口响应超时，请检查网络连接后重试。';
     }
+    if (msg.includes('JSON') || msg.includes('parse') || msg.includes('Unexpected token')) {
+      return '[响应解析异常] LLM 返回了异常数据，已自动忽略。请重试。';
+    }
     return `[错误] ${msg}`;
   }
 

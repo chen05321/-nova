@@ -21,6 +21,7 @@ export class SelfLearningSystem {
   private learningCount = 0;
   private dailyTarget = 3;
   private recentLearnings: string[] = [];
+  private skills: Map<string, { name: string; description: string; trigger: string; usage: number }> = new Map();
 
   constructor() {
     this.bus = CirculatorySystem.getInstance();
@@ -75,6 +76,9 @@ export class SelfLearningSystem {
     this.saveGraph();
     this.learningCount++;
     this.memory.addFact(`学到了: ${topic}`, 'learned', 0.6);
+
+    // Try to evolve into a skill
+    this.evolveSkill(topic);
 
     // 5. Create a practice record
     if (demo) {
@@ -160,6 +164,39 @@ console.log('Knowledge acquired and stored.');
     }
   }
 
+  private evolveSkill(topic: string): void {
+    // Check if we have enough related knowledge to form a skill
+    const related = Array.from(this.knowledgeGraph.values())
+      .filter(n => {
+        const words = topic.toLowerCase().split(/[\s:,-]+/);
+        return words.some(w => w.length > 3 && n.title.toLowerCase().includes(w));
+      });
+
+    const totalConfidence = related.reduce((s, n) => s + n.confidence, 0);
+    const nodeCount = related.length + 1;
+
+    // If we've learned about a topic 3+ times or have high confidence, create a skill
+    if (nodeCount >= 3 || totalConfidence > 2.0) {
+      const keywords = topic.split(/[\s:,-]+/).filter(w => w.length > 2);
+      const trigger = keywords[0]?.toLowerCase() || topic.toLowerCase().substring(0, 10);
+
+      if (!this.skills.has(trigger)) {
+        this.skills.set(trigger, {
+          name: topic.substring(0, 30),
+          description: `Expertise in ${topic} (learned from ${nodeCount} sources)`,
+          trigger,
+          usage: 0
+        });
+        this.bus.pulse('skill:acquired', { name: topic, trigger }, 'SelfLearningSystem');
+        this.memory.addFact(`技能: ${topic}`, 'skill', 0.8);
+      }
+    }
+  }
+
+  getSkills(): { name: string; description: string; trigger: string }[] {
+    return Array.from(this.skills.values()).map(s => ({ name: s.name, description: s.description, trigger: s.trigger }));
+  }
+
   private findConnections(topic: string): string[] {
     const connections: string[] = [];
     const keywords = topic.toLowerCase().split(/[\s:,-]+/);
@@ -181,7 +218,8 @@ console.log('Knowledge acquired and stored.');
       nodes: this.knowledgeGraph.size,
       connections: Array.from(this.knowledgeGraph.values())
         .reduce((s, n) => s + n.connections.length, 0),
-      recentLearnings: this.recentLearnings.slice(0, 10)
+      recentLearnings: this.recentLearnings.slice(0, 10),
+      skills: this.getSkills()
     };
   }
 

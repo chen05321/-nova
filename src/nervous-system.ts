@@ -48,6 +48,13 @@ Use tools freely—you have full access.`;
     this.subscribe('hormone:shift', (data) => this.regulateByHormone(data));
     this.subscribe('memory:recall', (data) => this.integrateMemory(data));
 
+    // Load recent conversation history from memory
+    const recent = this.memory.getRecentMessages(6);
+    if (recent.length > 0) {
+      this.conversationHistory = recent.map(m => ({ role: m.role, content: m.content }));
+      this.log(`Loaded ${this.conversationHistory.length} past messages from memory`);
+    }
+
     this.initialized = true;
     this.log(`Nervous system initialized with ${config.llm.fast.model}/${config.llm.reflective.model}/${config.llm.deep.model}`);
   }
@@ -116,12 +123,25 @@ Use tools freely—you have full access.`;
     const recentConvs = this.memory.getConversations().slice(0, 3);
     const memories: string[] = [];
 
+    // Load learned facts (higher priority)
+    const learned = this.memory.getFacts('learned');
+    const skills = this.memory.getFacts('skill');
+
+    for (const f of learned.slice(-5)) {
+      memories.push(`📚 ${f.content}`);
+    }
+    for (const f of skills.slice(-3)) {
+      memories.push(`⚡ ${f.content}`);
+    }
+    // Then regular facts
     for (const f of facts.slice(0, 5)) {
-      memories.push(`- ${f.content} (confidence: ${Math.round(f.confidence * 100)}%)`);
+      if (!learned.includes(f) && !skills.includes(f)) {
+        memories.push(`- ${f.content}`);
+      }
     }
 
-    const factBlock = memories.length > 0
-      ? `\n\nWhat I know:\n${memories.join('\n')}`
+    const learnedBlock = memories.length > 0
+      ? `\n\nThings I've learned:\n${memories.join('\n')}`
       : '';
 
     const convCount = recentConvs.reduce((s, c) => s + c.messageCount, 0);
@@ -137,7 +157,7 @@ Use tools freely—you have full access.`;
 
     const modeNote = `\n[Energy: ${energyMode.toUpperCase()}] ${modeInstructions[energyMode]}`;
 
-    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | ${facts.length} facts)${factBlock}${modeNote}`;
+    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Learned: ${learned.length} topics)${learnedBlock}${modeNote}`;
   }
 
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {

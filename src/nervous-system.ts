@@ -124,7 +124,7 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);
 
-        this.conversationHistory.push({ role: 'assistant', content: fullResponse });
+        this.conversationHistory.push({ role: 'assistant', content: fullResponse.replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, '').trim() });
         this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
         this.pruneContext();
 
@@ -155,11 +155,12 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         } catch {}
       }
 
-      this.conversationHistory.push({ role: 'assistant', content: fullResponse });
+      const cleanResponse = fullResponse.replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, '').trim();
+      this.conversationHistory.push({ role: 'assistant', content: cleanResponse });
       this.pruneContext();
       this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
       this.produceEnergy(2);
-      this.extractFacts(text, fullResponse);
+      this.extractFacts(text, cleanResponse);
 
       if (isAgentObjective) {
         this.bus.pulse('agent:response', { response: fullResponse }, this.name);

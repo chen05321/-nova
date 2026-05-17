@@ -14,6 +14,12 @@ export class NervousSystem extends System {
   private memory: MemoryStore;
   private lastToolName = '';
   private lastToolResult = '';
+
+  constructor(memory?: MemoryStore) {
+    super();
+    this.memory = memory || new MemoryStore();
+  }
+
   private systemPrompt = `You are Nova(超体), an AI with tools and memory.
 
 === TOOLS ===

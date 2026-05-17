@@ -23,7 +23,7 @@ nova/
 │   │   └── index.ts
 │   ├── memory/                # 💾 记忆系统 — JSON持久化存储
 │   │   └── index.ts
-│   ├── tools/                 # 🛠️ 工具集 — shell/read/write/ls/web/grep
+│   ├── tools/                 # 🛠️ 工具集 — write/read/shell/web
 │   │   └── index.ts
 │   ├── llm/                   # 🤖 LLM适配器 — DeepSeek/OpenAI/Anthropic
 │   │   ├── adapter.ts
@@ -37,7 +37,7 @@ nova/
 │   ├── cli/                   # 💻 CLI入口
 │   │   └── index.ts
 │   └── dashboard/             # 📊 看板 — HTML界面 + 状态服务器
-│       ├── index.html
+│       ├── dashboard.html
 │       └── status-server.ts
 │
 ├── superbody.mcp.json         # MCP配置文件(puppeteer)

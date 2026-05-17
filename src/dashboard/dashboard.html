@@ -362,17 +362,45 @@ bs.onmessage=function(e){
  }catch(e){}
 };
 
+function renderUpgrade(upgrades) {
+  var shop = document.getElementById('upgrade-shop');
+  if (!shop) return;
+  if (!upgrades || upgrades.length === 0) {
+    shop.innerHTML = '<div class="text-slate-600 text-[11px] text-center py-4">暂无可用升级</div>';
+    return;
+  }
+  shop.innerHTML = upgrades.map(function(u){
+    var applied = u.applied ? 'opacity-50' : '';
+    return '<div class="bg-black/30 p-2 rounded-xl border border-slate-800 flex flex-col gap-1 '+applied+'">' +
+      '<div class="flex justify-between items-center"><span class="text-teal-400 font-bold text-[11px]">'+u.name+'</span><span class="text-amber-400 text-[10px]">⚡'+u.cost+'</span></div>' +
+      '<div class="text-slate-400 text-[10px]">'+u.description+'</div>' +
+      (!u.applied ? '<button onclick="applyUpgrade(\''+u.id+'\')" class="text-[10px] bg-indigo-800 hover:bg-indigo-700 text-indigo-200 border border-indigo-700 px-2 py-0.5 rounded mt-1 transition-all cursor-pointer">安装芯片</button>' : '<div class="text-emerald-500 text-[10px] mt-1">✅ 已安装</div>') +
+    '</div>';
+  }).join('');
+}
+async function applyUpgrade(id) {
+  try{await fetch('/api/control/upgrade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})})}catch(e){}
+}
+
 var pl=new EventSource('/api/event-bus-pulse');
 pl.addEventListener('thought:chunk',function(e){
  try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
 });
 pl.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
 
+async function loadUpgrades() {
+  try {
+    var r = await fetch('/api/status'); var d = await r.json();
+    renderUpgrade(d.availableUpgrades||[]);
+  } catch(e){}
+}
+
 window.addEventListener('DOMContentLoaded', function(){ 
   loadBrainConfig(); 
   loadTasks(); 
   loadSessions();
   syncChatHistory();
+  loadUpgrades();
 });
 </script>
 </body>

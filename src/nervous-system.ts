@@ -252,16 +252,24 @@ After modifying code, the changes take effect when the server restarts.`;
         this.lastToolResult = toolResult.substring(0, 1000);
         this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
 
-        // Feed result back for final response
-        this.bus.pulse('thought:chunk', { chunk: `\n[✅ ${toolName} 完成，生成回复...]\n`, full: '' }, this.name);
-        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nProvide the answer to the user based on this result.` }];
-        fullResponse = '';
-        await new Promise<void>((resolve) => {
-          adapter.chatStream(followMsgs, (chunk, done) => {
-            if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
-            if (done) resolve();
-          }, contextPrompt);
-        });
+        // Feed result back for final response (or use raw result if LLM fails)
+        this.bus.pulse('thought:chunk', { chunk: `\n`, full: '' }, this.name);
+        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nProvide a clear answer based on this result. Be concise.` }];
+        try {
+          fullResponse = '';
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('timeout')), 15000);
+            adapter.chatStream(followMsgs, (chunk, done) => {
+              clearTimeout(timeout);
+              if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+              if (done) resolve();
+            }, contextPrompt);
+          });
+        } catch {
+          // If follow-up fails, use tool result directly
+          fullResponse = toolResult.substring(0, 2000);
+          this.bus.pulse('thought:chunk', { chunk: toolResult.substring(0, 500), full: fullResponse }, this.name);
+        }
       }
 
       this.conversationHistory.push({ role: 'assistant', content: fullResponse });

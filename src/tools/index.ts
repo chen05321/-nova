@@ -17,6 +17,26 @@ export interface Tool {
 
 const isWindows = process.platform === 'win32';
 
+// ─── Safety check ───────────────────────────────────────────
+const dangerousPatterns = [
+  { pattern: /rm\s+-rf\s+\//, msg: '⚠ 危险命令: rm -rf / 会删除整个系统' },
+  { pattern: /mkfs/, msg: '⚠ 危险命令: 格式化磁盘操作' },
+  { pattern: /dd\s+if=/, msg: '⚠ 危险命令: dd 磁盘写入操作' },
+  { pattern: />\s*\/dev\//, msg: '⚠ 危险命令: 写入设备文件' },
+  { pattern: /:\(\)\s*\{/, msg: '⚠ 危险命令: fork 炸弹' },
+  { pattern: /chmod\s+777\s+\//, msg: '⚠ 危险命令: 修改根目录权限' },
+  { pattern: /wget.*\|\s*sh/, msg: '⚠ 危险命令: 下载并执行未知脚本' },
+  { pattern: /curl.*\|\s*bash/, msg: '⚠ 危险命令: 下载并执行未知脚本' },
+  { pattern: /sudo\s+rm/, msg: '⚠ 危险: 需要确认的 sudo 删除操作' },
+];
+
+function safetyCheck(command: string): string | null {
+  for (const d of dangerousPatterns) {
+    if (d.pattern.test(command)) return d.msg;
+  }
+  return null;
+}
+
 // ─── Shell Tool ───────────────────────────────────────────────
 const shellTool: Tool = {
   name: 'shell',
@@ -24,6 +44,9 @@ const shellTool: Tool = {
   async execute(args: Record<string, string>): Promise<ToolResult> {
     const command = args.command;
     if (!command) return { success: false, output: '', error: 'No command provided' };
+
+    const danger = safetyCheck(command);
+    if (danger) return { success: false, output: '', error: danger };
 
     try {
       // Windows needs cmd.exe /c, Unix needs sh -c

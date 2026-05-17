@@ -34,7 +34,9 @@ Example:
 TOOL: shell
 ARGS: {"command": "ls -la"}
 
-Use tools freely—you have full access.`;
+Use tools freely but safely—dangerous operations (rm -rf /, dd, fork bombs) are blocked.
+When you identify a shortcoming in yourself, record it with: NOTE: [self-improvement] description
+Your self-assessments help improve your code.`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -233,6 +235,12 @@ Use tools freely—you have full access.`;
       this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
       this.produceEnergy(2);
       this.extractFacts(text, fullResponse);
+      // Check for self-improvement notes from the AI
+      const noteMatch = fullResponse.match(/NOTE:\s*\[self-improvement\]\s*(.+)/i);
+      if (noteMatch) {
+        this.memory.addFact(`[自改进] ${noteMatch[1].trim()}`, 'self_improvement', 0.6);
+        this.log(`Self-improvement noted: ${noteMatch[1].trim().substring(0, 60)}`);
+      }
       this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
       this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
       this.log(`Response generated (${fullResponse.length} chars)`);

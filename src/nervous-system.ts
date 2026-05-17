@@ -237,12 +237,15 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
         const toolName = toolMatch[1];
         let args: Record<string, string> = {};
         try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
+        // Send status update so the user knows something is happening
+        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ 执行 ${toolName}...]\n`, full: '' }, this.name);
         const toolResult = await this.executeToolByName(toolName, args);
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);
         this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
 
         // Feed result back for final response
+        this.bus.pulse('thought:chunk', { chunk: `\n[✅ ${toolName} 完成，生成回复...]\n`, full: '' }, this.name);
         const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nProvide the answer to the user based on this result.` }];
         fullResponse = '';
         await new Promise<void>((resolve) => {

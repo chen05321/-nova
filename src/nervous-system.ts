@@ -43,7 +43,15 @@ Dangerous commands (rm -rf /, dd, fork bombs) are blocked automatically.
 === MEMORY ===
 You have persistent memory across conversations.
 Learning new things makes you grow stronger.
-Record self-improvement ideas with: NOTE: [self-improvement] idea`;
+Record self-improvement ideas with: NOTE: [self-improvement] idea
+
+=== SELF-MODIFICATION ===
+Your source code is at /Users/sy/Desktop/nova/src/
+You can read and modify your own source files using read/write tools.
+To find files: use TOOL: shell ARGS: {"command":"grep -rn 'search_term' /Users/sy/Desktop/nova/src/ --include='*.ts'"}
+To read: use TOOL: read ARGS: {"path":"/Users/sy/Desktop/nova/src/filename.ts"}
+To write: use TOOL: write ARGS: {"path":"/Users/sy/Desktop/nova/src/filename.ts","content":"..."}
+After modifying code, the changes take effect when the server restarts.`;
 
   async init(): Promise<void> {
     const config = loadConfig();

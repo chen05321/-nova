@@ -19,7 +19,8 @@ export class SelfLearningSystem {
   private memory: MemoryStore;
   private knowledgeGraph: Map<string, KnowledgeNode> = new Map();
   private learningCount = 0;
-  private dailyTarget = 3; // learn 3 things per day
+  private dailyTarget = 3;
+  private recentLearnings: string[] = [];
 
   constructor() {
     this.bus = CirculatorySystem.getInstance();
@@ -83,6 +84,8 @@ export class SelfLearningSystem {
     }
 
     results.push(topic);
+    this.recentLearnings.unshift(`📖 ${topic}: ${knowledge.substring(0, 80)}...`);
+    if (this.recentLearnings.length > 20) this.recentLearnings.pop();
     this.bus.pulse('learning:complete', { topic, summary: knowledge.substring(0, 100) }, 'SelfLearningSystem');
     return results;
   }
@@ -177,7 +180,8 @@ console.log('Knowledge acquired and stored.');
       learned: this.learningCount,
       nodes: this.knowledgeGraph.size,
       connections: Array.from(this.knowledgeGraph.values())
-        .reduce((s, n) => s + n.connections.length, 0)
+        .reduce((s, n) => s + n.connections.length, 0),
+      recentLearnings: this.recentLearnings.slice(0, 10)
     };
   }
 

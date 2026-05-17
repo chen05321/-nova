@@ -341,8 +341,8 @@ export class NovaAgent {
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
     this.foraging.start(60000); // every 60s
-    // Deep learning: every 30 minutes
-    setInterval(() => this.learning.learnCycle(), 1800000);
+    // Deep learning: every 5 minutes
+    setInterval(() => this.learning.learnCycle(), 300000);
     this.isRunning = true;
     this.bus.pulse('system:boot-complete', { stage: this.stage }, 'NovaAgent');
     console.log(`\n[超体] ❤ Boot complete. Stage: ${this.stage} | Energy: ${this.bus.getEnergyStats().percent}%`);

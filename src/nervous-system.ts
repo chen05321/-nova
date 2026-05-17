@@ -64,8 +64,8 @@ Your self-assessments help improve your code.`;
     if (improvements.length > 0) {
       const recentImprovs = improvements.slice(-3).map(f => f.content).join('\n');
       this.conversationHistory.unshift({
-        role: 'system',
-        content: `[Self-improvement backlog]\n${recentImprovs}\n\nReview these items and address them when appropriate.`
+        role: 'user',
+        content: `[System: Self-improvement backlog]\n${recentImprovs}\n\nAddress these items when appropriate.`
       });
       this.log(`Loaded ${improvements.length} self-improvement notes`);
     }

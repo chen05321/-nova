@@ -42,6 +42,14 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <button id="btn-force-sleep" class="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">💤 休眠</button>
 <button id="btn-force-flush" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">🧼 排毒</button></div></div>
 
+<div class="panel-base p-4 rounded-2xl border-blue-500/30">
+<div class="flex justify-between items-center mb-2.5"><h2 class="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">🔌 配置</h2><button id="btn-opencode-import" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono transition-all cursor-pointer">📥 导入</button></div>
+<form id="config-llm-form" class="space-y-2 font-mono text-xs text-slate-300">
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">Provider</label><select id="cfg-provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="custom">Custom</option></select></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">Base URL</label><input type="text" id="cfg-baseurl" placeholder="https://api.deepseek.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">API Key</label><input type="password" id="cfg-apikey" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
+<button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-teal-500 text-white font-bold py-1.5 rounded-xl transition-all active:scale-95 text-center cursor-pointer uppercase tracking-wider text-[11px] mt-1 shadow-md">⚡ 保存</button></form></div>
+
 <div class="panel-base p-4 rounded-2xl">
 <div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">能量</h2><span id="energy-mode" class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-300 font-mono rounded border uppercase">Normal</span></div>
 <div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width:50%"></div></div>
@@ -86,6 +94,14 @@ ts.addEventListener('change',function(e){document.documentElement.setAttribute('
 mo.addEventListener('change',async function(e){try{await fetch('/api/control/model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:e.target.value})})}catch(e){}});
 document.getElementById('btn-force-sleep').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'sleep'})})};
 document.getElementById('btn-force-flush').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'flush'})})};
+
+// ─── Config card logic ─────────────────
+var cfgp=document.getElementById('cfg-provider'),cfgb=document.getElementById('cfg-baseurl'),cfgk=document.getElementById('cfg-apikey'),cfgf=document.getElementById('config-llm-form'),boi=document.getElementById('btn-opencode-import');
+var pm={deepseek:'https://api.deepseek.com',openai:'https://api.openai.com/v1',anthropic:'https://api.anthropic.com',custom:'http://localhost:3000/v1'};
+if(cfgp)cfgp.addEventListener('change',function(e){if(pm[e.target.value])cfgb.value=pm[e.target.value]});
+async function loadCfg(){try{var r=await fetch('/api/control/config');var d=await r.json();if(d.success&&d.config){cfgp.value=d.config.provider||'deepseek';cfgb.value=d.config.baseUrl||'';cfgk.value=d.config.hasKey?'••••••••••••••••••••••••':''}}catch(e){}}
+if(cfgf)cfgf.addEventListener('submit',async function(e){e.preventDefault();try{var r=await fetch('/api/control/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:cfgp.value,baseUrl:cfgb.value,apiKey:cfgk.value})});var d=await r.json();if(d.success){bubble('system','⚡ 配置已保存，Nova 即将重启...');setTimeout(function(){window.location.reload()},3000)}else{alert('保存失败: '+(d.error||''))}}catch(err){alert('连接失败')}});
+if(boi)boi.onclick=async function(){try{var r=await fetch('/api/opencode-key');var d=await r.json();if(d.providers&&d.providers.length>0){var p=d.providers[0];cfgp.value=p.name.toLowerCase().includes('deepseek')?'deepseek':'openai';cfgb.value=p.baseUrl||'https://api.deepseek.com';cfgk.value=p.apiKey||'';bubble('system','📥 已从 OpenCode 导入凭证，请点击"烧录核心"保存')}else{alert('未找到 OpenCode 凭证')}}catch(e){alert('导入失败')}};
 
 function bubble(r,t){
  var u=r==='user',w=document.createElement('div');

@@ -97,6 +97,55 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      // GET: read current config
+      if (url.pathname === '/api/control/config' && req.method === 'GET') {
+        const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
+        let cfg = { provider: 'deepseek', baseUrl: 'https://api.deepseek.com', hasKey: false };
+        try {
+          if (fs.existsSync(configPath)) {
+            const d = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            cfg.provider = d.llm?.fast?.provider || 'deepseek';
+            cfg.baseUrl = d.llm?.fast?.baseUrl || 'https://api.deepseek.com';
+            cfg.hasKey = !!(d.llm?.fast?.apiKey);
+          }
+        } catch {}
+        json({ success: true, config: cfg });
+        return;
+      }
+
+      // POST: save config and trigger watchdog restart
+      if (url.pathname === '/api/control/config/save' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { provider, baseUrl, apiKey } = JSON.parse(body);
+            const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
+            let base: any = { llm: { fast: {}, reflective: {}, deep: {} } };
+            try { if (fs.existsSync(configPath)) base = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
+
+            const finalKey = (apiKey === '••••••••••••••••••••••••' || !apiKey) ? base.llm?.fast?.apiKey : apiKey;
+            const modelMap: Record<string, string> = { deepseek: 'deepseek-chat', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514' };
+            const model = modelMap[provider] || 'deepseek-chat';
+
+            for (const tier of ['fast', 'reflective', 'deep']) {
+              if (!base.llm[tier]) base.llm[tier] = {};
+              base.llm[tier].provider = provider;
+              base.llm[tier].baseUrl = baseUrl;
+              base.llm[tier].model = tier === 'deep' && provider === 'deepseek' ? 'deepseek-reasoner' : model;
+              if (finalKey) base.llm[tier].apiKey = finalKey;
+            }
+
+            const configDir = path.dirname(configPath);
+            if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+            fs.writeFileSync(configPath, JSON.stringify(base, null, 2), 'utf-8');
+            json({ success: true });
+            setTimeout(() => bus.pulse('system:reincarnation_ready', { trigger: 'config_saved' }, 'Dashboard'), 1000);
+          } catch (e: any) { json({ success: false, error: e.message }, 400); }
+        });
+        return;
+      }
+
       // Control: model override
       if (url.pathname === '/api/control/model' && req.method === 'POST') {
         let body = '';

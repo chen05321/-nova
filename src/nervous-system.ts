@@ -110,15 +110,16 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
       const maxToolIterations = 10;
 
       while (toolIterations < maxToolIterations) {
-        const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
+        const toolMatch = fullResponse.match(/TOOL:\s*(\w+)[\s\S]*?ARGS:\s*(?:`{3}(?:json)?\s*)?(\{[\s\S]*?\})/i);
         if (!toolMatch || !toolMatch[2]) break;
 
         toolIterations++;
-        const toolName = toolMatch[1];
+        const toolName = toolMatch[1].trim();
+        let jsonStr = toolMatch[2].trim();
         let args: Record<string, string> = {};
-        try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
+        try { args = JSON.parse(jsonStr); } catch { args = { command: jsonStr }; }
 
-        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ ${toolName}] `, full: '' }, this.name);
+        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ 执行器官: ${toolName}] `, full: '' }, this.name);
         const toolResult = await this.executeToolByName(toolName, args);
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);

@@ -41,6 +41,80 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      // SSE: biometrics stream
+      if (url.pathname === '/api/biometrics-stream') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*'
+        });
+        const sendStatus = () => {
+          const energy = bus.getEnergyStats();
+          const heart = bus.getHeartbeatState();
+          const waste = bus.waste;
+          const st = agent.getStatus();
+          const sysPrompt = (agent.nervous as any).systemPrompt || '';
+          const roleName = '通用';
+          const modelName = (agent.nervous as any).currentModel || 'fast';
+          const data = JSON.stringify({
+            stage: st.stage, uptime: st.uptime, wisdom: agent.Wisdom,
+            energy, heart, model: modelName, role: roleName,
+            waste: { total: waste.total },
+            biometrics: st.biometrics,
+            learning: agent.learning.getStats()
+          });
+          try { res.write(`data: ${data}\n\n`); } catch {}
+        };
+        sendStatus();
+        const timer = setInterval(sendStatus, 2000);
+        req.on('close', () => clearInterval(timer));
+        return;
+      }
+
+      // SSE: event bus pulse (thought chunks)
+      if (url.pathname === '/api/event-bus-pulse') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*'
+        });
+        const onChunk = (event: any) => {
+          if (event.origin === 'NervousSystem') {
+            try { res.write(`event: thought:chunk\ndata: ${JSON.stringify({ chunk: event.payload?.chunk || '' })}\n\n`); } catch {}
+          }
+        };
+        const onPerceived = () => {
+          try { res.write(`event: thought:perceived\ndata: {}\n\n`); } catch {}
+        };
+        bus.on('thought:chunk', onChunk);
+        bus.on('thought:perceived', onPerceived);
+        req.on('close', () => {
+          bus.removeListener('thought:chunk', onChunk);
+          bus.removeListener('thought:perceived', onPerceived);
+        });
+        return;
+      }
+
+      // POST: chat input
+      if (url.pathname === '/api/input' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { text } = JSON.parse(body);
+            if (text) {
+              const memory = (agent as any).memory;
+              if (memory) memory.addMessage('user', text);
+              agent.bus.pulse('input:raw', { text }, 'Dashboard');
+              json({ ok: true });
+            } else { json({ ok: false }, 400); }
+          } catch { json({ ok: false }, 400); }
+        });
+        return;
+      }
+
       // OpenCode provider import
       if (url.pathname === '/api/opencode-key') {
         try {

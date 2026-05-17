@@ -79,8 +79,8 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
     this.llmAdapters.reflective = createLLM(config.llm.reflective);
     this.llmAdapters.deep = createLLM(config.llm.deep);
 
-    this.subscribe('input:raw', (data) => this.processPerception(data));
-    this.subscribe('agent:prompt', (data) => this.processAgentPrompt(data));
+    this.subscribe('input:raw', (data) => this.enqueuePerception(data, false));
+    this.subscribe('agent:prompt', (data) => this.enqueuePerception(data, true));
     this.subscribe('hormone:shift', (data) => this.regulateByHormone(data));
     this.subscribe('memory:recall', (data) => this.integrateMemory(data));
 
@@ -108,38 +108,116 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
     this.log(`Nervous system initialized with ${config.llm.fast.model}/${config.llm.reflective.model}/${config.llm.deep.model}`);
   }
 
-  private async processAgentPrompt(data: unknown): Promise<void> {
-    const payload = (data as { payload?: { text?: string } })?.payload;
-    const text = (payload as { text?: string })?.text;
+  // ─── Unified perception queue ─────────────────────
+  private pendingQueue: { text: string; isAgentObjective: boolean }[] = [];
+
+  private enqueuePerception(data: unknown, isAgentObjective: boolean): void {
+    const payload = (data as any)?.payload;
+    const text = payload?.text;
     if (!text) return;
 
-    this.cognitiveLoad += 0.1;
-    this.log(`Agent prompt: ${text.substring(0, 60)}...`);
+    if (this.processingState !== 'idle') {
+      this.log(`⏳ Busy (${this.processingState}), queueing: ${text.substring(0, 30)}...`);
+      this.pendingQueue.push({ text, isAgentObjective });
+      return;
+    }
 
+    this.executePerceptionLoop(text, isAgentObjective);
+  }
+
+  private async executePerceptionLoop(text: string, isAgentObjective: boolean): Promise<void> {
     try {
+      this.processingState = 'thinking';
+      this.consumeEnergy(3);
+      this.cognitiveLoad += 0.2;
+
+      const prefix = isAgentObjective ? '[Agent Task] ' : '';
+      this.conversationHistory.push({ role: 'user', content: `${prefix}${text}` });
+      this.pruneContext();
+
+      this.bus.pulse('thought:perceived', { text, model: this.currentModel }, this.name);
+      this.log(`Processing: ${text.substring(0, 50)}...`);
+
       const adapter = this.llmAdapters[this.currentModel];
+      const modelName = adapter.getModelName();
+      const contextPrompt = this.buildContextPrompt();
       let fullResponse = '';
 
-      const agentPrompt = `${this.buildContextPrompt()}\n\nYou are running autonomously. You have tools available. To use a tool, respond with:\nTOOL: tool_name\nARGS: {"key": "value"}\n\nWhen done, respond with:\nFINAL: your answer`;
+      // First LLM call
+      await new Promise<void>((resolveStream) => {
+        const msgs = this.conversationHistory.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        adapter.chatStream(msgs, (chunk, done) => {
+          if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+          if (done) resolveStream();
+        }, contextPrompt);
+      });
 
-      await adapter.chatStream(
-        [{ role: 'user', content: text }],
-        (chunk, done) => {
-          if (chunk) {
-            fullResponse += chunk;
-            this.bus.pulse('agent:chunk', { chunk }, this.name);
-          }
-          if (done) {
-            this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
-            this.bus.pulse('agent:response', { response: fullResponse }, this.name);
-          }
-        },
-        agentPrompt
-      );
+      // Tool execution loop
+      this.processingState = 'acting';
+      let toolIterations = 0;
+      const maxToolIterations = 10;
+
+      while (toolIterations < maxToolIterations) {
+        const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
+        if (!toolMatch || !toolMatch[2]) break;
+
+        toolIterations++;
+        const toolName = toolMatch[1];
+        let args: Record<string, string> = {};
+        try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
+
+        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ ${toolName}] `, full: '' }, this.name);
+        const toolResult = await this.executeToolByName(toolName, args);
+        this.lastToolName = toolName;
+        this.lastToolResult = toolResult.substring(0, 1000);
+        this.log(`Tool ${toolName}: ${toolResult.substring(0, 60)}`);
+
+        // Feed result into shared history
+        this.conversationHistory.push({ role: 'assistant', content: fullResponse });
+        this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
+        this.pruneContext();
+
+        fullResponse = '';
+        await new Promise<void>((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error('timeout')), 20000);
+          const msgs = this.conversationHistory.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+          adapter.chatStream(msgs, (chunk, done) => {
+            clearTimeout(t);
+            if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+            if (done) resolve();
+          }, contextPrompt);
+        });
+      }
+
+      this.conversationHistory.push({ role: 'assistant', content: fullResponse });
+      this.pruneContext();
+      this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
+      this.produceEnergy(2);
+      this.extractFacts(text, fullResponse);
+
+      if (isAgentObjective) {
+        this.bus.pulse('agent:response', { response: fullResponse }, this.name);
+      }
+      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
+      this.bus.pulse('token:consumed', { amount: Math.ceil((fullResponse.length + text.length) * 1.3) }, this.name);
+      this.log(`Response generated (${fullResponse.length} chars)`);
+
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.bus.pulse('agent:response', { response: this.errorMsg(errMsg) }, this.name);
-      this.bus.pulse('system:error', { error: errMsg }, this.name);
+      this.cognitiveLoad += 0.3;
+      this.log(`Reasoning error: ${errMsg}`);
+      this.bus.pulse('thought:complete', { response: this.errorMsg(errMsg), error: errMsg }, this.name);
+      this.bus.pulse('system:error', { error: errMsg, source: 'NervousSystem' }, this.name);
+      if (isAgentObjective) {
+        this.bus.pulse('agent:response', { response: `[Error] ${errMsg}` }, this.name);
+      }
+    } finally {
+      this.processingState = 'idle';
+      // Process next queued item
+      if (this.pendingQueue.length > 0) {
+        const next = this.pendingQueue.shift()!;
+        setTimeout(() => this.executePerceptionLoop(next.text, next.isAgentObjective), 50);
+      }
     }
   }
 
@@ -233,127 +311,6 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
       return result.success ? result.output : `Error: ${result.error}`;
     } catch (e) {
       return `Tool execution failed: ${e}`;
-    }
-  }
-
-  private async processPerception(data: unknown): Promise<void> {
-    const input = (data as { payload?: { text?: string } })?.payload;
-    const text = (input as { text?: string })?.text;
-    if (!text) return;
-
-    // State machine: reject if already processing
-    if (this.processingState !== 'idle') {
-      this.log(`Busy (${this.processingState}), queuing: ${text.substring(0, 30)}...`);
-      // Queue for later processing
-      return;
-    }
-
-    this.processingState = 'thinking';
-    this.consumeEnergy(3);
-    this.cognitiveLoad += 0.2;
-    this.conversationHistory.push({ role: 'user', content: text });
-    this.pruneContext();
-
-    this.bus.pulse('thought:perceived', { text, model: this.currentModel }, this.name);
-    this.log(`Processing: ${text.substring(0, 50)}...`);
-
-    try {
-      const adapter = this.llmAdapters[this.currentModel];
-      const modelName = adapter.getModelName();
-
-      const msgs = this.conversationHistory.slice(-10).map(m => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content
-      }));
-
-      let fullResponse = '';
-      const contextPrompt = this.buildContextPrompt();
-
-      // Get the response, stream it, wait for completion
-      await new Promise<void>((resolveStream) => {
-        adapter.chatStream(msgs, (chunk, done) => {
-          if (chunk) {
-            fullResponse += chunk;
-            this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name);
-          }
-          if (done) resolveStream();
-        }, contextPrompt);
-      });
-
-      // Multi-step tool execution loop
-      let currentMsgs = [...msgs];
-      let toolIterations = 0;
-      const maxToolIterations = 10;
-
-      while (toolIterations < maxToolIterations) {
-        const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
-        if (!toolMatch || !toolMatch[2]) break;
-
-        toolIterations++;
-        const toolName = toolMatch[1];
-        let args: Record<string, string> = {};
-        try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
-
-        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ ${toolName}] `, full: '' }, this.name);
-        const toolResult = await this.executeToolByName(toolName, args);
-        this.lastToolName = toolName;
-        this.lastToolResult = toolResult.substring(0, 1000);
-        this.log(`Tool ${toolName}: ${toolResult.substring(0, 60)}`);
-
-        // Feed result back and get next response (tool or final)
-        currentMsgs = [...currentMsgs.slice(-8),
-          { role: 'assistant' as const, content: fullResponse },
-          { role: 'user' as const, content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue. If done, just answer. If more work needed, use TOOL: again.` }
-        ];
-        fullResponse = '';
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('timeout')), 20000);
-            adapter.chatStream(currentMsgs, (chunk, done) => {
-              clearTimeout(t);
-              if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
-              if (done) resolve();
-            }, contextPrompt);
-          });
-        } catch {
-          fullResponse = `\n[Result]\n${toolResult.substring(0, 1000)}`;
-          break;
-        }
-      }
-
-      if (toolIterations === 0) {
-        // No tool was used, the first response is the final one
-      }
-
-      this.conversationHistory.push({ role: 'assistant', content: fullResponse });
-      this.pruneContext();
-      this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
-      this.produceEnergy(2);
-      this.extractFacts(text, fullResponse);
-      // Check for self-improvement notes from the AI
-      const noteMatch = fullResponse.match(/NOTE:\s*\[self-improvement\]\s*(.+)/i);
-      if (noteMatch) {
-        this.memory.addFact(`[自改进] ${noteMatch[1].trim()}`, 'self_improvement', 0.6);
-        this.log(`Self-improvement noted: ${noteMatch[1].trim().substring(0, 60)}`);
-      }
-      this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
-      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName, usage: { totalTokens: Math.ceil(fullResponse.length * 1.3) } }, this.name);
-      // Notify respiratory of estimated token consumption
-      this.bus.pulse('token:consumed', { amount: Math.ceil(fullResponse.length * 1.3 + text.length * 1.3) }, this.name);
-      this.log(`Response generated (${fullResponse.length} chars)`);
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.cognitiveLoad += 0.3;
-      this.log(`Reasoning error: ${errMsg}`);
-
-      this.bus.pulse('thought:complete', {
-        response: this.errorMsg(errMsg),
-        error: errMsg
-      }, this.name);
-
-      this.bus.pulse('system:error', { error: errMsg, source: 'NervousSystem.think' }, this.name);
-    } finally {
-      this.processingState = 'idle';
     }
   }
 

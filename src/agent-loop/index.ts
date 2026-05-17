@@ -167,9 +167,33 @@ Rules:
   }
 
   async execute(objective: string): Promise<string> {
-    if (this.running) {
-      return 'Agent is already running';
-    }
+    if (this.running) return 'Agent is already running';
+    this.running = true;
+    this.turnCount = 0;
+    this.bus.pulse('agent:status', { type: 'thinking', turn: 1 }, 'AgentLoop');
+
+    this.bus.pulse('agent:prompt', {
+      text: `[Objective]\n${objective}\n\nUse tools as needed. Reply with FINAL: when done.`
+    }, 'AgentLoop');
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.bus.removeListener('agent:response', handler);
+        this.running = false;
+        resolve('Agent response timeout');
+      }, 120000);
+
+      const handler = (event: any) => {
+        if (event.origin === 'NervousSystem') {
+          clearTimeout(timeout);
+          this.running = false;
+          this.bus.pulse('agent:status', { type: 'complete' }, 'AgentLoop');
+          resolve(event.payload?.response || 'No response');
+        }
+      };
+      this.bus.on('agent:response', handler);
+    });
+  }
 
     this.running = true;
     this.turnCount = 0;

@@ -1,131 +1,120 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nova (超体) - 生物全息舱</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova (超体) - 生物全息控制舱 v3</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body{background-color:#05070c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.bio-glow-green{box-shadow:0 0 20px rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.2)}
-.bio-glow-blue{box-shadow:0 0 20px rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.2)}
-.bio-glow-red{box-shadow:0 0 20px rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.3)}
-.bio-glow-amber{box-shadow:0 0 20px rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.2)}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:rgba(255,255,255,0.02)}
+:root[data-theme="dark"]{--bg-main:#05070c;--panel-bg:rgba(15,23,42,0.4);--border-color:rgba(51,65,85,0.5);--glow-blue:rgba(59,130,246,0.15);--text-primary:#f1f5f9}
+:root[data-theme="cyberpunk"]{--bg-main:#0c0214;--panel-bg:rgba(26,0,46,0.5);--border-color:rgba(236,72,153,0.4);--glow-blue:rgba(236,72,153,0.2);--text-primary:#fdf2ff}
+:root[data-theme="light"]{--bg-main:#f8fafc;--panel-bg:rgba(255,255,255,0.85);--border-color:rgba(226,232,240,1);--glow-blue:rgba(148,163,184,0.05);--text-primary:#0f172a}
+body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s ease}
+.panel-base{background:var(--panel-bg);border:1px solid var(--border-color);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:all 0.3s ease}
+.glow-active{box-shadow:0 0 25px var(--glow-blue)}
+::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
-@keyframes bio-pulse{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.08);opacity:1;filter:drop-shadow(0 0 8px #10b981)}}
+@keyframes bio-pulse{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.08);opacity:1}}
 .heart-pulse{animation:bio-pulse 1s infinite ease-in-out}
 </style>
 </head>
-<body class="text-slate-200 min-h-screen p-4 flex flex-col gap-4 overflow-hidden select-none">
-<header class="flex justify-between items-center bg-slate-900/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/60">
+<body class="min-h-screen p-4 flex flex-col gap-4 overflow-hidden select-none text-sm">
+<header class="panel-base px-6 py-3 rounded-2xl flex justify-between items-center shadow-lg">
 <div class="flex items-center gap-4">
 <div id="heart-icon" class="text-2xl text-emerald-400 heart-pulse">❤</div>
-<div><h1 class="text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500">NOVA (超体) <span class="text-xs font-mono px-2 py-0.5 bg-slate-800 rounded-full border border-slate-700 text-slate-400">v2.0</span></h1>
-<p class="text-xs text-slate-500 font-mono">Uptime: <span id="uptime">00:00:00</span></p></div></div>
-<div class="flex gap-8 items-center text-sm font-mono">
-<div class="bg-slate-950/60 px-4 py-1.5 rounded-xl border border-slate-800/80"><span class="text-slate-500 text-xs block uppercase tracking-tight">生命周期</span><span id="growth-stage" class="text-teal-400 font-bold tracking-wide">NEWBORN</span></div>
-<div class="bg-slate-950/60 px-4 py-1.5 rounded-xl border border-slate-800/80"><span class="text-slate-500 text-xs block uppercase tracking-tight">智慧</span><span id="wisdom-score" class="text-amber-400 font-bold">0</span></div>
-<div class="bg-slate-950/60 px-4 py-1.5 rounded-xl border border-slate-800/80"><span class="text-slate-500 text-xs block uppercase tracking-tight">中枢状态</span><span id="global-status" class="text-emerald-400 font-bold uppercase">HEALTHY</span></div>
-</div></header>
+<div><h1 class="text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">NOVA CONTROL WORKSTATION</h1>
+<p class="text-xs text-slate-500 font-mono">Uptime: <span id="uptime">00:00:00</span> | Phase: <span id="growth-stage" class="text-teal-400 font-bold">NEWBORN</span></p></div></div>
+<div class="flex items-center gap-6 font-mono text-xs">
+<div class="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-xl border border-slate-800">
+<span class="text-slate-500 text-[11px]">🧠 模型:</span>
+<select id="model-override" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-blue-400 font-bold focus:outline-none cursor-pointer">
+<option value="auto">🤖 自动</option><option value="fast">⚡ Fast</option><option value="reflective">🌿 Reflective</option><option value="deep">🔮 Deep</option></select></div>
+<div class="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-xl border border-slate-800">
+<span class="text-slate-500 text-[11px]">🎨 主题:</span>
+<select id="theme-switcher" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-purple-400 focus:outline-none cursor-pointer">
+<option value="dark">🌌 深海</option><option value="cyberpunk">🔮 赛博</option><option value="light">🥼 白实验室</option></select></div>
+<div class="bg-black/30 px-4 py-2 rounded-xl border border-slate-800 text-center"><span class="text-slate-500 text-[10px] block uppercase">智慧</span><span id="wisdom-score" class="text-amber-400 font-bold text-sm">0</span></div></div></header>
 
 <main class="grid grid-cols-12 gap-4 flex-1 h-[calc(100vh-100px)] overflow-hidden">
 <section class="col-span-3 flex flex-col gap-4 overflow-y-auto pr-1">
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50 bio-glow-green">
-<div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">能量池</h2><span id="energy-mode" class="text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-400 font-mono rounded border border-emerald-800 uppercase">Normal</span></div>
-<div class="relative h-4 w-full bg-slate-900 rounded-full overflow-hidden mb-2 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width:50%"></div><div class="absolute inset-0 flex justify-center items-center text-[10px] font-mono font-bold text-white" id="energy-pct">50%</div></div>
-<div class="flex justify-between text-xs font-mono text-slate-500"><span>心率: <span id="heart-rate" class="text-slate-300">60</span> bpm</span><span>赤字: <span id="energy-debt" class="text-red-400">0</span></span></div></div>
+<div class="panel-base p-4 rounded-2xl border-amber-500/30">
+<h2 class="text-xs font-bold text-amber-400 uppercase font-mono tracking-wider mb-3">⚡ 应急干预</h2>
+<div class="grid grid-cols-2 gap-2 font-mono text-xs">
+<button id="btn-force-sleep" class="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">💤 休眠</button>
+<button id="btn-force-flush" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">🧼 排毒</button></div></div>
 
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50 bio-glow-blue">
-<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">Token 桶</h2>
-<div class="relative h-4 w-full bg-slate-900 rounded-full overflow-hidden mb-2 border border-slate-800"><div id="token-bar" class="h-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300" style="width:100%"></div><div class="absolute inset-0 flex justify-center items-center text-[10px] font-mono font-bold text-white" id="token-status">10000/10000</div></div>
-<div class="flex justify-between text-xs font-mono text-slate-500"><span>呼吸: <span id="breath-cycle" class="text-slate-300">0</span>/s</span><span id="breath-lock" class="text-slate-500">正常</span></div></div>
+<div class="panel-base p-4 rounded-2xl">
+<div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">能量</h2><span id="energy-mode" class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-300 font-mono rounded border uppercase">Normal</span></div>
+<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width:50%"></div></div>
+<div class="flex justify-between text-xs font-mono text-slate-500"><span>心率: <span id="heart-rate" class="text-slate-300">60</span> bpm</span><span>债务: <span id="energy-debt" class="text-red-400">0</span></span></div></div>
 
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50 flex-1 flex flex-col">
-<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-3">激素</h2>
-<div class="space-y-3 flex-1 flex flex-col justify-around">
-<div><div class="flex justify-between text-xs font-mono mb-1"><span class="text-slate-400">肾上腺素</span><span id="h-adrenaline" class="text-slate-300">0.10</span></div><div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800/60"><div id="b-adrenaline" class="h-full bg-rose-500 transition-all duration-500" style="width:10%"></div></div></div>
-<div><div class="flex justify-between text-xs font-mono mb-1"><span class="text-slate-400">皮质醇</span><span id="h-cortisol" class="text-slate-300">0.20</span></div><div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800/60"><div id="b-cortisol" class="h-full bg-amber-500 transition-all duration-500" style="width:20%"></div></div></div>
-<div><div class="flex justify-between text-xs font-mono mb-1"><span class="text-slate-400">多巴胺</span><span id="h-dopamine" class="text-slate-300">0.50</span></div><div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800/60"><div id="b-dopamine" class="h-full bg-teal-400 transition-all duration-500" style="width:50%"></div></div></div>
-<div><div class="flex justify-between text-xs font-mono mb-1"><span class="text-slate-400">血清素</span><span id="h-serotonin" class="text-slate-300">0.50</span></div><div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800/60"><div id="b-serotonin" class="h-full bg-emerald-400 transition-all duration-500" style="width:50%"></div></div></div>
-</div></div>
+<div class="panel-base p-4 rounded-2xl"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">呼吸 (Token)</h2>
+<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="token-bar" class="h-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300" style="width:100%"></div></div>
+<div class="flex justify-between text-xs font-mono text-slate-500"><span id="token-status" class="text-slate-300">10000/10000</span><span id="breath-lock" class="text-emerald-500 font-bold">正常</span></div></div>
 
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50">
-<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">毒素</h2>
-<div class="relative h-3 w-full bg-slate-900 rounded-full overflow-hidden mb-2 border border-slate-800"><div id="toxin-bar" class="h-full bg-gradient-to-r from-orange-500 to-rose-600 transition-all duration-500" style="width:0%"></div></div>
-<div class="flex justify-between text-xs font-mono text-slate-500"><span>毒素: <span id="toxin-level" class="text-slate-300">0%</span></span><span>记忆: <span id="memory-count" class="text-slate-300">0</span></span></div></div></section>
+<div class="panel-base p-4 rounded-2xl flex-1 flex flex-col justify-between">
+<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">激素</h2>
+<div class="space-y-3 font-mono text-xs">
+<div><div class="flex justify-between mb-0.5"><span class="text-slate-400">肾上腺素</span><span id="h-adrenaline">0.10</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-adrenaline" class="h-full bg-rose-500 transition-all duration-500" style="width:10%"></div></div></div>
+<div><div class="flex justify-between mb-0.5"><span class="text-slate-400">皮质醇</span><span id="h-cortisol">0.20</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-cortisol" class="h-full bg-amber-500 transition-all duration-500" style="width:20%"></div></div></div>
+<div><div class="flex justify-between mb-0.5"><span class="text-slate-400">多巴胺</span><span id="h-dopamine">0.50</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-dopamine" class="h-full bg-teal-400 transition-all duration-500" style="width:50%"></div></div></div></div>
+<div class="mt-4 pt-2 border-t border-slate-800/60 text-xs font-mono text-slate-500">毒素: <span id="toxin-level" class="text-orange-400 font-bold">0%</span></div></div></section>
 
-<section class="col-span-6 flex flex-col bg-slate-950/20 rounded-2xl border border-slate-800/60 overflow-hidden bio-glow-blue">
-<div class="bg-slate-900/60 border-b border-slate-800/80 px-4 py-2.5 flex justify-between items-center font-mono text-xs text-slate-400">
-<div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" id="state-dot"></span><span>认知负载: <span id="cognitive-load" class="text-slate-200">0.0</span></span></div>
+<section class="col-span-6 flex flex-col panel-base rounded-2xl overflow-hidden glow-active">
+<div class="bg-black/30 border-b border-slate-800 px-4 py-2.5 flex justify-between items-center font-mono text-xs text-slate-400">
+<div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" id="state-dot"></span><span>负载: <span id="cognitive-load" class="text-slate-200">0.0</span></span></div>
 <div>模型: <span id="current-model-name" class="text-blue-400 font-bold">deepseek-chat</span></div></div>
-
-<div class="bg-slate-950/70 px-4 py-2 border-b border-slate-900 text-[11px] font-mono text-cyan-500/80 min-h-[36px] flex items-center overflow-x-auto whitespace-nowrap">
-<span>🧠 </span><span id="thought-chunk-live" class="text-slate-300 italic truncate">等待输入...</span></div>
-
-<div id="chat-viewport" class="flex-1 p-4 overflow-y-auto space-y-4 font-normal text-sm">
-<div class="flex gap-3 max-w-[85%]"><div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="flex flex-col gap-1"><span class="text-[10px] text-slate-500 font-mono">Nova</span><div class="bg-slate-900/80 border border-slate-800/60 px-3 py-2 rounded-2xl rounded-tl-none text-slate-300 shadow-sm leading-relaxed">我已就绪。</div></div></div></div>
-
-<div class="p-3 bg-slate-900/40 border-t border-slate-800/60">
-<form id="chat-form" class="flex gap-2 items-center">
-<input type="text" id="chat-input" autocomplete="off" placeholder="输入消息..." class="flex-1 bg-slate-950/80 border border-slate-800/80 px-4 py-2.5 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/30 transition-all">
-<button type="submit" class="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white font-medium text-xs font-mono tracking-wider px-5 py-2.5 rounded-xl shadow-md transition-all active:scale-95 uppercase">发送</button>
-</form></div></section>
+<div class="bg-slate-950/80 px-4 py-1.5 border-b border-black text-[11px] font-mono text-cyan-400/80 truncate">🧠 <span id="thought-chunk-live" class="text-slate-300 italic">等待输入...</span></div>
+<div id="chat-viewport" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm leading-relaxed">
+<div class="flex gap-3 max-w-[85%]"><div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="bg-slate-900/60 border border-slate-800 px-3 py-2 rounded-2xl rounded-tl-none text-slate-300">控制舱就绪。</div></div></div>
+<div class="p-3 bg-black/20 border-t border-slate-800"><form id="chat-form" class="flex gap-2">
+<input type="text" id="chat-input" autocomplete="off" placeholder="输入消息..." class="flex-1 bg-black/40 border border-slate-800 px-4 py-2 rounded-xl text-slate-100 focus:outline-none focus:border-blue-500 transition-all text-sm">
+<button type="submit" class="bg-gradient-to-r from-blue-600 to-teal-500 text-white font-mono text-xs font-bold px-5 py-2 rounded-xl active:scale-95 transition-all">发送</button></form></div></section>
 
 <section class="col-span-3 flex flex-col gap-4 overflow-y-auto pl-1">
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50">
-<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">消化</h2>
-<div class="flex justify-between items-center text-xs font-mono text-slate-400 mb-2"><span>营养:</span><span id="nutrient-level" class="text-teal-400 font-bold">50%</span></div>
-<div class="flex justify-between text-[11px] font-mono text-slate-500 border-t border-slate-900 pt-2"><span>知识: <span id="knowledge-count" class="text-slate-300">0</span></span><span>待消化: <span id="digest-queue" class="text-slate-300">0</span></span></div></div>
-
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50 flex-1 flex flex-col overflow-hidden bio-glow-amber">
+<div class="panel-base p-4 rounded-2xl border-teal-500/20 flex flex-col max-h-[45%]">
+<h2 class="text-xs font-bold text-teal-400 uppercase font-mono tracking-wider mb-2">🧬 升级</h2>
+<div id="upgrade-shop" class="space-y-2 overflow-y-auto flex-1 pr-0.5"></div></div>
+<div class="panel-base p-4 rounded-2xl flex-1 flex flex-col overflow-hidden">
 <h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">工具</h2>
-<div id="tools-grid" class="grid grid-cols-2 gap-2 overflow-y-auto flex-1 content-start py-1"></div></div>
-
-<div class="bg-slate-950/40 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50">
-<div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">学习</h2><span id="learned-count" class="text-[10px] font-mono bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">0</span></div>
-<div class="text-xs font-mono text-slate-400 space-y-1.5 max-h-[100px] overflow-y-auto" id="skills-list"><div class="text-slate-600 italic text-center py-2 text-[11px]">无</div></div></div></section></main>
+<div id="tools-grid" class="grid grid-cols-2 gap-2 overflow-y-auto content-start pr-0.5 py-1"></div></div></section></main>
 
 <script>
-var chatViewport=document.getElementById('chat-viewport');
-var chatForm=document.getElementById('chat-form');
-var chatInput=document.getElementById('chat-input');
-var thoughtChunkLive=document.getElementById('thought-chunk-live');
-var activeBody=null;
+var cv=document.getElementById('chat-viewport'),cf=document.getElementById('chat-form'),ci=document.getElementById('chat-input'),tc=document.getElementById('thought-chunk-live'),ts=document.getElementById('theme-switcher'),mo=document.getElementById('model-override');
+var ab=null;
 
-function bubble(role,text){
- var u=role==='user';
- var w=document.createElement('div');
+ts.addEventListener('change',function(e){document.documentElement.setAttribute('data-theme',e.target.value)});
+mo.addEventListener('change',async function(e){try{await fetch('/api/control/model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:e.target.value})})}catch(e){}});
+document.getElementById('btn-force-sleep').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'sleep'})})};
+document.getElementById('btn-force-flush').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'flush'})})};
+
+function bubble(r,t){
+ var u=r==='user',w=document.createElement('div');
  w.className=u?'flex gap-3 max-w-[85%] ml-auto justify-end':'flex gap-3 max-w-[85%]';
  var a=document.createElement('div');
- a.className=u?'w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 order-2':'w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md';
+ a.className=u?'w-8 h-8 rounded-xl bg-slate-800 border flex items-center justify-center text-xs font-bold order-2':'w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md';
  a.innerText=u?'主':'超';
- var c=document.createElement('div');
- c.className='flex flex-col gap-1';
- var l=document.createElement('div');
- l.className='text-[10px] text-slate-500 font-mono';
- l.innerText=u?'你':'Nova';
+ var c=document.createElement('div');c.className='flex flex-col gap-1';
  var b=document.createElement('div');
- b.className=u?'bg-blue-600 border border-blue-500 px-3 py-2 rounded-2xl rounded-tr-none text-white shadow-sm leading-relaxed':'bg-slate-900/80 border border-slate-800/60 px-3 py-2 rounded-2xl rounded-tl-none text-slate-300 shadow-sm leading-relaxed';
- b.innerText=text;
- c.appendChild(l);c.appendChild(b);
- w.appendChild(a);w.appendChild(c);
- chatViewport.appendChild(w);
- chatViewport.scrollTop=chatViewport.scrollHeight;
- if(!u){activeBody=b}
+ b.className=u?'bg-blue-600 px-3 py-2 rounded-2xl rounded-tr-none text-white':'bg-slate-900/80 border border-slate-800 px-3 py-2 rounded-2xl rounded-tl-none text-slate-300';
+ b.innerText=t;c.appendChild(b);w.appendChild(a);w.appendChild(c);
+ cv.appendChild(w);cv.scrollTop=cv.scrollHeight;if(!u)ab=b;
 }
 
-chatForm.addEventListener('submit',async function(e){
- e.preventDefault();
- var t=chatInput.value.trim();
- if(!t)return;
- bubble('user',t);
- chatInput.value='';
- activeBody=null;
- try{await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})}
- catch(err){bubble('assistant','连接失败')}
+cf.addEventListener('submit',async function(e){
+ e.preventDefault();var t=ci.value.trim();if(!t)return;
+ bubble('user',t);ci.value='';ab=null;
+ try{await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})}catch(e){}
 });
+
+function renderUpgrade(ups){
+ var el=document.getElementById('upgrade-shop');
+ if(!ups||!ups.length)ups=[{id:'eff_nervous',name:'神经效率',cost:30,desc:'降低能耗20%'},{id:'eff_tools',name:'工具精通',cost:35,desc:'成功率+10%'},{id:'eff_resp',name:'肺活量',cost:25,desc:'Token恢复+'},{id:'eff_memory',name:'记忆扩展',cost:15,desc:'容量+50%'},{id:'eff_digest',name:'消化增强',cost:20,desc:'知识处理*2'},{id:'eff_repro',name:'进化加速',cost:40,desc:'进化速度*2'}];
+ el.innerHTML=ups.map(function(u){return'<div class="bg-black/40 p-2 rounded-xl border border-slate-800 flex flex-col gap-1"><div class="flex justify-between text-xs font-mono"><span class="text-teal-400 font-bold">🧬 '+u.name+'</span><button onclick="buyUpgrade(\''+u.id+'\')" class="bg-teal-950 hover:bg-teal-900 border border-teal-700 text-teal-300 px-2 py-0.5 rounded text-[10px] cursor-pointer">⚡ '+(u.cost||'?')+'</button></div><p class="text-[10px] text-slate-500">'+(u.desc||'')+'</p></div>'}).join('');
+}
+
+async function buyUpgrade(id){
+ try{var r=await fetch('/api/control/upgrade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});var d=await r.json();if(d.ok)bubble('system','⚡ 升级: '+id)}catch(e){}
+}
 
 var bs=new EventSource('/api/biometrics-stream');
 bs.onmessage=function(e){
@@ -134,78 +123,41 @@ bs.onmessage=function(e){
   document.getElementById('growth-stage').innerText=d.stage;
   document.getElementById('wisdom-score').innerText=d.wisdom||0;
   var sec=Math.floor(d.uptime/1000);
-  document.getElementById('uptime').innerText=
-   String(Math.floor(sec/3600)).padStart(2,'0')+':'+String(Math.floor((sec%3600)/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+  document.getElementById('uptime').innerText=String(Math.floor(sec/3600)).padStart(2,'0')+':'+String(Math.floor((sec%3600)/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
   document.getElementById('energy-bar').style.width=d.energy.percent+'%';
-  document.getElementById('energy-pct').innerText=d.energy.percent+'%';
   document.getElementById('energy-mode').innerText=d.energy.mode;
   document.getElementById('heart-rate').innerText=d.heart.heartRate;
   document.getElementById('energy-debt').innerText=d.energy.debt||0;
-  document.getElementById('toxin-bar').style.width=Math.min(d.waste.total,100)+'%';
-  document.getElementById('toxin-level').innerText=Math.floor(d.waste.total)+'%';
-  var bio=d.biometrics||[];
-  bio.forEach(function(s){
+  document.getElementById('token-bar').style.width=Math.min(100,(d.energy.percent))+ '%';
+  document.getElementById('token-status').innerText=d.energy.percent+'%';
+  document.getElementById('toxin-level').innerText=d.waste.total+'%';
+  (d.biometrics||[]).forEach(function(s){
    if(s.name==='Nervous'){
     document.getElementById('cognitive-load').innerText=s.load.toFixed(2);
     document.getElementById('current-model-name').innerText=s.metadata?.modelName||'?';
-    var dot=document.getElementById('state-dot');
-    dot.className='w-2 h-2 rounded-full '+(s.status==='stressed'?'bg-rose-500 animate-ping':'bg-blue-500 animate-pulse');
-    document.getElementById('global-status').innerText=s.status==='stressed'?'STRESSED':'HEALTHY';
-    document.getElementById('global-status').className=s.status==='stressed'?'text-rose-400 font-bold uppercase':'text-emerald-400 font-bold uppercase';
+    document.getElementById('state-dot').className='w-2 h-2 rounded-full '+(s.status==='stressed'?'bg-rose-500 animate-ping':'bg-blue-500 animate-pulse');
    }
    if(s.name==='Endocrine'){
     var h=s.metadata?.hormones||{};
-    ['adrenaline','cortisol','dopamine','serotonin'].forEach(function(k){
-     var v=h[k]||0;
-     var el=document.getElementById('h-'+k);if(el)el.innerText=v.toFixed(2);
+    ['adrenaline','cortisol','dopamine'].forEach(function(k){
+     var v=h[k]||0;var el=document.getElementById('h-'+k);if(el)el.innerText=v.toFixed(2);
      var bl=document.getElementById('b-'+k);if(bl)bl.style.width=(v*100)+'%';
     });
    }
-   if(s.name==='Respiratory'){
-    var tk=s.metadata?.tokensRemaining||0;
-    var cap=s.metadata?.capacity||10000;
-    var pct=(tk/cap)*100;
-    document.getElementById('token-bar').style.width=pct+'%';
-    document.getElementById('token-status').innerText=Math.floor(tk)+'/'+cap;
-    document.getElementById('breath-cycle').innerText=s.metadata?.breathCycle||0;
-    var bl=document.getElementById('breath-lock');
-    if(s.metadata?.isHoldingBreath){bl.innerText='⚠窒息';bl.className='text-rose-400 font-bold'}else{bl.innerText='正常';bl.className='text-slate-500'}
-   }
-   if(s.name==='Urinary'){
-    document.getElementById('memory-count').innerText=s.metadata?.memoryCount||0;
-   }
-   if(s.name==='Digestive'){
-    var nut=(s.metadata?.nutrientLevel||0)*100;
-    document.getElementById('nutrient-level').innerText=Math.floor(nut)+'%';
-    document.getElementById('knowledge-count').innerText=s.metadata?.knowledgeFragments||0;
-    document.getElementById('digest-queue').innerText=s.metadata?.digestionQueue||0;
-   }
    if(s.name==='Musculoskeletal'){
-    var tools=s.metadata?.tools||[];
-    var g=document.getElementById('tools-grid');
-    if(tools.length){g.innerHTML=tools.map(function(t){return'<div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800"><div class="flex justify-between items-center mb-1"><span class="text-amber-400 font-bold text-[11px]">'+t.name+'</span><span class="text-slate-500 text-[10px]">x'+t.usage+'</span></div><div class="text-right text-slate-400 text-[10px]">成功率: '+(t.successRate*100).toFixed(0)+'%</div></div>'}).join('')}
+    var tls=s.metadata?.tools||[];
+    document.getElementById('tools-grid').innerHTML=tls.map(function(t){return'<div class="bg-black/30 p-2 rounded-xl border border-slate-800 flex flex-col font-mono text-[11px]"><div class="flex justify-between text-teal-400 font-bold"><span>🛠 '+t.name+'</span><span>x'+t.usage+'</span></div><div class="text-right text-slate-500 text-[10px]">成功率: '+(t.successRate*100).toFixed(0)+'%</div></div>'}).join('');
    }
   });
-  // Learning stats
-  var learn=d.learning||{};
-  document.getElementById('learned-count').innerText=learn.learned||0;
-  var sl=document.getElementById('skills-list');
-  if(learn.skills&&learn.skills.length){
-   sl.innerHTML=learn.skills.map(function(s){return'<div class="flex items-center gap-1 text-[11px]"><span class="text-teal-400">◆</span>'+s.name+'</div>'}).join('')
-  }
- }catch(err){}
+  renderUpgrade(d.upgrades||[]);
+ }catch(e){}
 };
 
-var pulse=new EventSource('/api/event-bus-pulse');
-pulse.addEventListener('thought:chunk',function(e){
- try{
-  var d=JSON.parse(e.data);
-  if(d.chunk){thoughtChunkLive.innerText=d.chunk;
-   if(activeBody){activeBody.innerText+=d.chunk;chatViewport.scrollTop=chatViewport.scrollHeight}
-  }
- }catch(err){}
+var pl=new EventSource('/api/event-bus-pulse');
+pl.addEventListener('thought:chunk',function(e){
+ try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
 });
-pulse.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
+pl.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
 </script>
 </body>
 </html>

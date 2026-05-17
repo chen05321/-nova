@@ -97,6 +97,51 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      // Control: model override
+      if (url.pathname === '/api/control/model' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { mode } = JSON.parse(body);
+            if (mode && ['fast', 'reflective', 'deep'].includes(mode)) {
+              (agent.nervous as any).currentModel = mode;
+              json({ ok: true });
+            } else { json({ ok: false }, 400); }
+          } catch { json({ ok: false }, 400); }
+        });
+        return;
+      }
+
+      // Control: physiology (sleep/flush)
+      if (url.pathname === '/api/control/physiology' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { action } = JSON.parse(body);
+            if (action === 'sleep') { agent.isSleeping = true; json({ ok: true }); }
+            else if (action === 'flush') { bus.flushWaste(100); json({ ok: true }); }
+            else { json({ ok: false }, 400); }
+          } catch { json({ ok: false }, 400); }
+        });
+        return;
+      }
+
+      // Control: upgrade purchase
+      if (url.pathname === '/api/control/upgrade' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { id } = JSON.parse(body);
+            const ok = agent.applyUpgrade(id);
+            json({ ok });
+          } catch { json({ ok: false }, 400); }
+        });
+        return;
+      }
+
       // POST: chat input
       if (url.pathname === '/api/input' && req.method === 'POST') {
         let body = '';

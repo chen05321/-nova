@@ -254,37 +254,49 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
         }, contextPrompt);
       });
 
-      // Check if LLM requested a tool (match various formats)
-      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
-      if (toolMatch && toolMatch[2]) {
+      // Multi-step tool execution loop
+      let currentMsgs = [...msgs];
+      let toolIterations = 0;
+      const maxToolIterations = 10;
+
+      while (toolIterations < maxToolIterations) {
+        const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
+        if (!toolMatch || !toolMatch[2]) break;
+
+        toolIterations++;
         const toolName = toolMatch[1];
         let args: Record<string, string> = {};
         try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
-        // Send status update so the user knows something is happening
-        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ 执行 ${toolName}...]\n`, full: '' }, this.name);
+
+        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ ${toolName}] `, full: '' }, this.name);
         const toolResult = await this.executeToolByName(toolName, args);
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);
-        this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
+        this.log(`Tool ${toolName}: ${toolResult.substring(0, 60)}`);
 
-        // Feed result back for final response (or use raw result if LLM fails)
-        this.bus.pulse('thought:chunk', { chunk: `\n`, full: '' }, this.name);
-        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nAnswer the user's question clearly. Then proactively ask if they want to do something next.` }];
+        // Feed result back and get next response (tool or final)
+        currentMsgs = [...currentMsgs.slice(-8),
+          { role: 'assistant' as const, content: fullResponse },
+          { role: 'user' as const, content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue. If done, just answer. If more work needed, use TOOL: again.` }
+        ];
+        fullResponse = '';
         try {
-          fullResponse = '';
           await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('timeout')), 15000);
-            adapter.chatStream(followMsgs, (chunk, done) => {
-              clearTimeout(timeout);
+            const t = setTimeout(() => reject(new Error('timeout')), 20000);
+            adapter.chatStream(currentMsgs, (chunk, done) => {
+              clearTimeout(t);
               if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
               if (done) resolve();
             }, contextPrompt);
           });
         } catch {
-          // If follow-up fails, use tool result directly
-          fullResponse = toolResult.substring(0, 2000);
-          this.bus.pulse('thought:chunk', { chunk: toolResult.substring(0, 500), full: fullResponse }, this.name);
+          fullResponse = `\n[Result]\n${toolResult.substring(0, 1000)}`;
+          break;
         }
+      }
+
+      if (toolIterations === 0) {
+        // No tool was used, the first response is the final one
       }
 
       this.conversationHistory.push({ role: 'assistant', content: fullResponse });

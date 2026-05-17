@@ -88,6 +88,8 @@ const shellTool: Tool = {
 };
 
 // ─── Read File Tool ───────────────────────────────────────────
+const PROJECT_ROOT = '/Users/sy/Desktop/nova';
+
 const readTool: Tool = {
   name: 'read',
   description: 'Read a file from the filesystem. Provide the file path.',
@@ -95,12 +97,25 @@ const readTool: Tool = {
     const filePath = args.path;
     if (!filePath) return { success: false, output: '', error: 'No path provided' };
 
-    try {
-      const content = fs.readFileSync(path.resolve(filePath), 'utf-8');
-      return { success: true, output: content };
-    } catch (err) {
-      return { success: false, output: '', error: String(err) };
+    // Try multiple paths: as-is, relative to CWD, relative to project root
+    const candidates = [
+      filePath,
+      path.resolve(filePath),
+      path.join(PROJECT_ROOT, filePath),
+      path.join(PROJECT_ROOT, filePath.replace(/^src\//, 'src/')),
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        const resolved = path.resolve(candidate);
+        if (fs.existsSync(resolved)) {
+          const content = fs.readFileSync(resolved, 'utf-8');
+          return { success: true, output: content };
+        }
+      } catch {}
     }
+
+    return { success: false, output: '', error: `File not found: ${filePath}` };
   }
 };
 
@@ -114,14 +129,16 @@ const writeTool: Tool = {
     if (!filePath) return { success: false, output: '', error: 'No path provided' };
     if (content === undefined) return { success: false, output: '', error: 'No content provided' };
 
-    try {
-      const resolved = path.resolve(filePath);
-      fs.mkdirSync(path.dirname(resolved), { recursive: true });
-      fs.writeFileSync(resolved, content, 'utf-8');
-      return { success: true, output: `Written ${content.length} bytes to ${filePath}` };
-    } catch (err) {
-      return { success: false, output: '', error: String(err) };
+    const candidates = [filePath, path.resolve(filePath), path.join(PROJECT_ROOT, filePath)];
+    for (const candidate of candidates) {
+      try {
+        const resolved = path.resolve(candidate);
+        fs.mkdirSync(path.dirname(resolved), { recursive: true });
+        fs.writeFileSync(resolved, content, 'utf-8');
+        return { success: true, output: `Written ${content.length} bytes` };
+      } catch {}
     }
+    return { success: false, output: '', error: `Cannot write: ${filePath}` };
   }
 };
 

@@ -113,7 +113,10 @@ export class DeepSeekAdapter extends LLMAdapter {
 
           try {
             const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content || '';
+            const delta = parsed.choices?.[0]?.delta || {};
+            const content = delta.content || '';
+            const reasoning = delta.reasoning_content || '';
+            if (reasoning) onChunk(reasoning, false);
             if (content) onChunk(content, false);
           } catch {}
         }

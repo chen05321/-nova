@@ -53,21 +53,21 @@ const DEFAULT_CONFIG: NovaConfig = {
     fast: {
       provider: 'deepseek',
       apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       maxTokens: 1024,
       temperature: 0.3
     },
     reflective: {
       provider: 'deepseek',
       apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       maxTokens: 2048,
       temperature: 0.7
     },
     deep: {
       provider: 'deepseek',
       apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-reasoner',
+      model: 'deepseek-v4-pro',
       maxTokens: 4096,
       temperature: 0.9
     }

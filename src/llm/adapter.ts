@@ -15,6 +15,11 @@ export interface LLMResponse {
   };
 }
 
+export interface DynamicOptions {
+  temperature?: number;
+  top_p?: number;
+}
+
 export type StreamCallback = (chunk: string, done: boolean) => void;
 
 export abstract class LLMAdapter {
@@ -29,7 +34,8 @@ export abstract class LLMAdapter {
   abstract chatStream(
     messages: LLMMessage[],
     onChunk: StreamCallback,
-    systemPrompt?: string
+    systemPrompt?: string,
+    dynamicOptions?: DynamicOptions
   ): Promise<void>;
 
   getModelName(): string {

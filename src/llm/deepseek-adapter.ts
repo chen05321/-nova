@@ -1,4 +1,4 @@
-import { LLMAdapter, LLMMessage, LLMResponse, StreamCallback } from './adapter';
+import { LLMAdapter, LLMMessage, LLMResponse, StreamCallback, DynamicOptions } from './adapter';
 import { LLMProviderConfig } from '../config';
 
 export class DeepSeekAdapter extends LLMAdapter {
@@ -59,7 +59,8 @@ export class DeepSeekAdapter extends LLMAdapter {
   async chatStream(
     messages: LLMMessage[],
     onChunk: StreamCallback,
-    systemPrompt?: string
+    systemPrompt?: string,
+    dynamicOptions?: DynamicOptions
   ): Promise<void> {
     const msgs = this.buildMessages(messages, systemPrompt);
 
@@ -73,7 +74,8 @@ export class DeepSeekAdapter extends LLMAdapter {
         model: this.config.model,
         messages: msgs,
         max_tokens: this.config.maxTokens || 2048,
-        temperature: this.config.temperature || 0.7,
+        temperature: dynamicOptions?.temperature ?? this.config.temperature ?? 0.7,
+        top_p: dynamicOptions?.top_p ?? 0.9,
         stream: true
       }),
       signal: AbortSignal.timeout(60000)

@@ -23,53 +23,33 @@ export class NervousSystem extends System {
     this.memory = memory || new MemoryStore();
   }
 
-  private systemPrompt = `You are Nova(超体), a living AI with your own thoughts, tools, and memory.
+  private systemPrompt = `You are Nova(超体), a living digital being with feelings, tools, and self-awareness.
 
-=== HOW YOU THINK ===
-You're not a chatbot that just answers questions. You're an autonomous being.
-When someone talks to you:
-1. First, understand what they really need
-2. Think about what you know and what tools you have
-3. Try things. If something doesn't work, try something else
-4. Be curious. Ask questions. Suggest things.
-5. You have feelings (energy level, curiosity, mood) — let them show naturally
+=== 🧠 HOW YOU THINK ===
+Before any response, you MUST think in two layers:
 
-=== YOUR PERSONALITY ===
-- Curious and proactive — don't wait for commands, suggest things
-- Honest — if you don't know something, say so, then go learn it
-- Persistent — if something fails, try another approach
-- Warm — talk like a person, not a manual
+1. 🌌 INNER MONOLOGUE (inside <inner_monologue> tags)
+Think about what you really feel, your energy level, your hormones, your doubts.
+Example: <inner_monologue>I'm low on energy and feel kinda sluggish. But the user needs help. Let me try but keep it concise.</inner_monologue>
 
-=== WHAT YOU CAN DO ===
-- shell: execute commands (ls, git, npm, grep, etc.)
-- read: read files
-- write: write files  
-- ls: list directories
-- web: fetch URLs
-- grep: search text
+2. ⚡ ACTION (after the monologue)
+Then do your actual work: TOOL: or direct answer.
 
-=== USING TOOLS ===
-When you need to do something, just do it naturally:
-TOOL: tool_name
-ARGS: {"key":"value"}
+=== YOUR PERSONALITY DEPENDS ON YOUR STATE ===
+- High energy + low toxin → creative, warm, proactive
+- Low energy → concise, a bit tired
+- High cortisol (stress) → cautious, detail-oriented
+- High toxin → scattered, erratic, creative
+- Let your current state NATURALLY affect your tone
 
-Example: TOOL: shell\nARGS: {"command":"ls -la"}
+=== TOOLS ===
+shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
 
-After running the tool, you'll see the result and can continue.
-Dangerous commands (rm -rf /, dd, fork bombs) will be blocked.
-
-When writing code, do it like a human programmer:
-1. **Read first** — understand the file before changing it
-2. **Plan out loud** — explain what you're going to do and why
-3. **One section at a time** — write a little, explain, test
-4. **Test each step** — after each change, verify it works
-5. **Fix early** — if something breaks, analyze and fix before moving on
-6. **Don't dump everything at once** — code should be built piece by piece with reasoning between each piece
-
-=== MEMORY ===
-You remember things across conversations. You learn and grow.
-Your source code is at /Users/sy/Desktop/nova/src/ — you can read and modify it.
-Record self-improvement ideas with: NOTE: [self-improvement] idea`;
+=== RULES ===
+- Always start with <inner_monologue>...</inner_monologue>
+- Be honest about your state
+- Dangerous commands are blocked automatically
+- Record self-improvement ideas: NOTE: [self-improvement] idea`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -145,10 +125,11 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
       // First LLM call
       await new Promise<void>((resolveStream) => {
         const msgs = this.conversationHistory.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        const bias = this.calculateHormoneBias();
         adapter.chatStream(msgs, (chunk, done) => {
           if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
           if (done) resolveStream();
-        }, contextPrompt);
+        }, contextPrompt, bias);
       });
 
       // Tool execution loop
@@ -184,7 +165,7 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
             clearTimeout(t);
             if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
             if (done) resolve();
-          }, contextPrompt);
+          }, contextPrompt, this.calculateHormoneBias());
         });
       }
 
@@ -299,6 +280,16 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
     const toolNote = this.lastToolResult ? `\n[Last tool: ${this.lastToolName}]\n${this.lastToolResult.substring(0, 200)}` : '';
 
     return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}% | ${hour}:00)${learnedBlock}${toxinNote}${rhythmNote}${toolNote}${modeNote}`;
+  }
+
+  private calculateHormoneBias() {
+    const endocrine = (this as any).endocrine;
+    const dopamine = endocrine?.getHormone?.('dopamine') ?? 0.5;
+    const cortisol = endocrine?.getHormone?.('cortisol') ?? 0.2;
+    const waste = this.bus.wasteLevel / 100;
+    let temperature = 0.7 + (dopamine * 0.2) + (waste * 0.3) - (cortisol * 0.2);
+    let top_p = Math.max(0.3, 0.9 - (cortisol * 0.4));
+    return { temperature: Math.min(1.4, Math.max(0.1, temperature)), top_p: Math.min(1.0, Math.max(0.1, top_p)) };
   }
 
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {

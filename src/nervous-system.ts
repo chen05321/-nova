@@ -115,11 +115,22 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
 
         toolIterations++;
         const toolName = toolMatch[1].trim();
-        let jsonStr = toolMatch[2].trim();
+        const jsonStr = toolMatch[2].trim();
         let args: Record<string, string> = {};
-        try { args = JSON.parse(jsonStr); } catch { args = { command: jsonStr }; }
 
-        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ 执行器官: ${toolName}] `, full: '' }, this.name);
+        try {
+          args = JSON.parse(jsonStr);
+        } catch {
+          const pMatch = jsonStr.match(/"(?:path|file)"\s*:\s*"([\s\S]*?)"\s*(?:,|\s*\})/i);
+          const cMatch = jsonStr.match(/"content"\s*:\s*"([\s\S]*?)"\s*(?:,|\s*\})/i);
+          const cmdMatch = jsonStr.match(/"command"\s*:\s*"([\s\S]*?)"\s*(?:,|\s*\})/i);
+          if (pMatch) args.path = pMatch[1];
+          if (cMatch) args.content = cMatch[1];
+          if (cmdMatch) args.command = cmdMatch[1];
+          if (!pMatch && !cMatch && !cmdMatch) args = { command: jsonStr };
+        }
+
+        this.bus.pulse('thought:chunk', { chunk: `\n[⚡ 运动器官激活: ${toolName}] `, full: '' }, this.name);
         const toolResult = await this.executeToolByName(toolName, args);
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);

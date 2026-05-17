@@ -120,9 +120,9 @@ export class DeepSeekAdapter extends LLMAdapter {
             const content = delta?.content || '';
             
             if (reasoning) {
-              onChunk(reasoning, false);
+              onChunk(reasoning, false, true);
             } else if (content) {
-              onChunk(content, false);
+              onChunk(content, false, false);
             }
           } catch {}
         }

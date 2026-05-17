@@ -100,8 +100,15 @@ ARGS: {"key":"value"}
       await new Promise<void>((resolveStream) => {
         const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
         const bias = this.calculateHormoneBias();
-        adapter.chatStream(msgs, (chunk, done) => {
-          if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+        adapter.chatStream(msgs, (chunk, done, isReasoning) => {
+          if (chunk) {
+            if (isReasoning) {
+              this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
+            } else {
+              fullResponse += chunk;
+              this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+            }
+          }
           if (done) resolveStream();
         }, contextPrompt, bias)
         // 安全阀：捕获域名填错、断网、额度超支，杜绝意识空间卡死挂起
@@ -150,9 +157,16 @@ ARGS: {"key":"value"}
         await new Promise<void>((resolve, reject) => {
           const t = setTimeout(() => reject(new Error('timeout')), 20000);
           const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-          adapter.chatStream(msgs, (chunk, done) => {
+          adapter.chatStream(msgs, (chunk, done, isReasoning) => {
             clearTimeout(t);
-            if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+            if (chunk) {
+              if (isReasoning) {
+                this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
+              } else {
+                fullResponse += chunk;
+                this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+              }
+            }
             if (done) resolve();
           }, contextPrompt, this.calculateHormoneBias());
         }).catch((err) => {

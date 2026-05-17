@@ -384,7 +384,7 @@ async function applyUpgrade(id) {
 
 var pl=new EventSource('/api/event-bus-pulse');
 pl.addEventListener('thought:chunk',function(e){
- try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
+ try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(!d.isReasoning&&ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
 });
 pl.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
 

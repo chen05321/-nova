@@ -20,7 +20,7 @@ export interface DynamicOptions {
   top_p?: number;
 }
 
-export type StreamCallback = (chunk: string, done: boolean) => void;
+export type StreamCallback = (chunk: string, done: boolean, isReasoning?: boolean) => void;
 
 export abstract class LLMAdapter {
   protected config: LLMProviderConfig;

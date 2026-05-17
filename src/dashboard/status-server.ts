@@ -141,7 +141,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         });
         const onChunk = (event: any) => {
           if (event.origin === 'NervousSystem') {
-            try { res.write(`event: thought:chunk\ndata: ${JSON.stringify({ chunk: event.payload?.chunk || '' })}\n\n`); } catch {}
+            try { res.write(`event: thought:chunk\ndata: ${JSON.stringify({ chunk: event.payload?.chunk || '', isReasoning: event.payload?.isReasoning ?? false })}\n\n`); } catch {}
           }
         };
         const onPerceived = () => {

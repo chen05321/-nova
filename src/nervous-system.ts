@@ -59,6 +59,17 @@ Your self-assessments help improve your code.`;
       this.log(`Loaded ${this.conversationHistory.length} past messages from memory`);
     }
 
+    // Load self-improvement notes from memory
+    const improvements = this.memory.getFacts('self_improvement');
+    if (improvements.length > 0) {
+      const recentImprovs = improvements.slice(-3).map(f => f.content).join('\n');
+      this.conversationHistory.unshift({
+        role: 'system',
+        content: `[Self-improvement backlog]\n${recentImprovs}\n\nReview these items and address them when appropriate.`
+      });
+      this.log(`Loaded ${improvements.length} self-improvement notes`);
+    }
+
     this.initialized = true;
     this.log(`Nervous system initialized with ${config.llm.fast.model}/${config.llm.reflective.model}/${config.llm.deep.model}`);
   }

@@ -14,6 +14,41 @@ interface KnowledgeNode {
   confidence: number;
 }
 
+// ─── Skill Learning Path ──────────────────────────────
+interface SkillPlan {
+  id: string;
+  name: string;
+  description: string;
+  level: number;          // 1=básica, 2=intermedia, 3=avanzada
+  category: string;
+  prerequisite: string[];
+  learned: boolean;
+  verifiedAt?: number;
+}
+
+const SKILL_TREE: SkillPlan[] = [
+  // Nivel 1: Fundamentos
+  { id: 'fs_read', name: '文件读取', description: '读文件、解析JSON/YAML', level: 1, category: 'filesystem', prerequisite: [], learned: false },
+  { id: 'fs_write', name: '文件写入', description: '写文件、创建目录、备份', level: 1, category: 'filesystem', prerequisite: [], learned: false },
+  { id: 'fs_find', name: '文件搜索', description: 'grep查找、glob匹配', level: 1, category: 'filesystem', prerequisite: [], learned: false },
+  { id: 'web_get', name: '网页抓取', description: 'fetch URL、解析HTML', level: 1, category: 'network', prerequisite: [], learned: false },
+  { id: 'web_search', name: '网络搜索', description: '搜索引擎查询、提取结果', level: 1, category: 'network', prerequisite: [], learned: false },
+  { id: 'shell_basic', name: 'Shell基础', description: '执行命令、管道、重定向', level: 1, category: 'shell', prerequisite: [], learned: false },
+  { id: 'shell_git', name: 'Git操作', description: 'clone/commit/push/pull', level: 1, category: 'shell', prerequisite: [], learned: false },
+  
+  // Nivel 2: Aplicaciones
+  { id: 'browser_url', name: '浏览器导航', description: '打开URL、截图页面', level: 2, category: 'browser', prerequisite: ['web_get'], learned: false },
+  { id: 'browser_interact', name: '浏览器交互', description: '点击按钮、填写表单', level: 2, category: 'browser', prerequisite: ['browser_url'], learned: false },
+  { id: 'data_json', name: '数据处理', description: 'JSON转换、过滤、统计', level: 2, category: 'data', prerequisite: ['fs_read'], learned: false },
+  { id: 'data_csv', name: '表格处理', description: 'CSV读写、数据清洗', level: 2, category: 'data', prerequisite: ['fs_read'], learned: false },
+  { id: 'code_analyze', name: '代码分析', description: '读代码、找bug、重构', level: 2, category: 'code', prerequisite: ['fs_read'], learned: false },
+  
+  // Nivel 3: Proyectos
+  { id: 'project_setup', name: '项目搭建', description: '初始化项目、装依赖', level: 3, category: 'project', prerequisite: ['shell_basic', 'shell_git'], learned: false },
+  { id: 'project_auto', name: '自动化脚本', description: '编写自动任务脚本', level: 3, category: 'project', prerequisite: ['shell_basic', 'code_analyze'], learned: false },
+  { id: 'project_mcp', name: 'MCP插件开发', description: '创建自定义MCP服务器', level: 3, category: 'project', prerequisite: ['browser_interact', 'data_json'], learned: false },
+];
+
 export class SelfLearningSystem {
   private bus: CirculatorySystem;
   private memory: MemoryStore;
@@ -22,11 +57,53 @@ export class SelfLearningSystem {
   private dailyTarget = 3;
   private recentLearnings: string[] = [];
   private skills: Map<string, { name: string; description: string; trigger: string; usage: number }> = new Map();
+  private skillProgress: Map<string, SkillPlan> = new Map();
 
   constructor() {
     this.bus = CirculatorySystem.getInstance();
     this.memory = new MemoryStore();
     this.loadGraph();
+    this.loadSkillProgress();
+  }
+
+  private loadSkillProgress(): void {
+    const saved = this.memory.getFacts('skill_progress');
+    if (saved.length > 0) {
+      try {
+        const data = JSON.parse(saved[0].content);
+        this.skillProgress = new Map(Object.entries(data));
+      } catch {}
+    }
+    // Ensure all skills are in the map
+    for (const s of SKILL_TREE) {
+      if (!this.skillProgress.has(s.id)) {
+        this.skillProgress.set(s.id, { ...s });
+      }
+    }
+  }
+
+  private saveSkillProgress(): void {
+    const obj: Record<string, SkillPlan> = {};
+    this.skillProgress.forEach((v, k) => { obj[k] = v; });
+    this.memory.addFact(JSON.stringify(obj), 'skill_progress', 0.9);
+  }
+
+  private pickNextSkill(): SkillPlan | null {
+    const all = Array.from(this.skillProgress.values());
+    const notLearned = all.filter(s => !s.learned);
+    if (notLearned.length === 0) return null;
+
+    // Check prerequisites
+    for (const s of notLearned) {
+      const prereqsMet = s.prerequisite.every(preId => {
+        const pre = this.skillProgress.get(preId);
+        return pre && pre.learned;
+      });
+      if (prereqsMet) return s;
+    }
+
+    // Fallback: pick the first unlearned with fewest prerequisites
+    return notLearned.sort((a, b) => a.prerequisite.length - b.prerequisite.length)[0];
   }
 
   private loadGraph(): void {
@@ -48,7 +125,26 @@ export class SelfLearningSystem {
   async learnCycle(): Promise<string[]> {
     const results: string[] = [];
 
-    // 1. Browse GitHub Trending
+    // 0. Check if there's a skill to learn
+    const nextSkill = this.pickNextSkill();
+    if (nextSkill) {
+      const topic = nextSkill.name + ': ' + nextSkill.description;
+      const knowledge = await this.research(topic);
+      if (knowledge) {
+        nextSkill.learned = true;
+        nextSkill.verifiedAt = Date.now();
+        this.saveSkillProgress();
+        this.memory.addFact(`[技能] ${nextSkill.name}: ${nextSkill.description}`, 'skill', 0.8);
+        this.memory.addFact(`[学习] 完成技能: ${nextSkill.name}`, 'learned', 0.9);
+        this.recentLearnings.unshift(`🎯 掌握技能: ${nextSkill.name}`);
+        if (this.recentLearnings.length > 20) this.recentLearnings.pop();
+        this.bus.pulse('learning:complete', { topic: nextSkill.name, summary: `新技能: ${nextSkill.description}` }, 'SelfLearningSystem');
+        results.push(nextSkill.name);
+        return results;
+      }
+    }
+
+    // 1. Browse GitHub Trending (fallback)
     const topic = await this.discoverTopic();
     if (!topic) return results;
 

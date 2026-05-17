@@ -167,6 +167,8 @@ Use your tools freely—you have full access.`;
           this.produceEnergy(2);
           // Auto-extract key info as facts
           this.extractFacts(text, fullResponse);
+          // Feed to urinary system for memory pruning
+          this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
           this.bus.pulse('thought:complete', {
             response: fullResponse,
             model: modelName

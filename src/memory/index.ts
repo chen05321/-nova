@@ -105,6 +105,19 @@ export class MemoryStore {
   }
 
   addFact(content: string, category: string, confidence = 0.5): void {
+    // Snapshot categories: only keep the latest (update in place)
+    const snapshotCats = ['personality', 'wisdom', 'skill_progress', 'knowledge_graph'];
+    if (snapshotCats.includes(category)) {
+      const existing = this.data.facts.find(f => f.category === category);
+      if (existing) {
+        existing.content = content;
+        existing.confidence = confidence;
+        existing.timestamp = Date.now();
+        save(this.data);
+        return;
+      }
+    }
+
     this.data.facts.push({
       id: uuid(),
       content,
@@ -112,11 +125,28 @@ export class MemoryStore {
       confidence,
       timestamp: Date.now()
     });
-    // Keep max 200 facts, prune oldest low-confidence ones
+
+    // Prune: keep max 200, remove oldest + lowest confidence first
     if (this.data.facts.length > 200) {
-      this.data.facts.sort((a, b) => a.confidence - b.confidence);
+      this.data.facts.sort((a, b) => {
+        const ageA = Date.now() - a.timestamp;
+        const ageB = Date.now() - b.timestamp;
+        const scoreA = a.confidence * (1 - ageA / (30 * 24 * 60 * 60 * 1000));
+        const scoreB = b.confidence * (1 - ageB / (30 * 24 * 60 * 60 * 1000));
+        return scoreA - scoreB;
+      });
       this.data.facts = this.data.facts.slice(-200);
     }
+    save(this.data);
+  }
+
+  // Archive old conversations: if a conversation has >100 messages, summarize the old ones
+  archiveConversation(): void {
+    const conv = this.data.conversations.find(c => c.id === this.currentConvId);
+    if (!conv || conv.messages.length < 100) return;
+    const old = conv.messages.slice(0, -80);
+    const summary = `[${old.length} archived messages: ${old[0].content.substring(0,30)}...${old[old.length-1].content.substring(0,30)}]`;
+    conv.messages = [{ id: uuid(), role: 'system', content: summary, timestamp: Date.now() }, ...conv.messages.slice(-80)];
     save(this.data);
   }
 

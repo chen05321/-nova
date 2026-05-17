@@ -18,8 +18,16 @@ export interface Tool {
 const isWindows = process.platform === 'win32';
 
 // ─── Safety check ───────────────────────────────────────────
+const safePrefixes = [
+  'ls', 'cat', 'echo', 'pwd', 'cd', 'git', 'npm', 'node', 'python',
+  'head', 'tail', 'wc', 'sort', 'uniq', 'diff', 'find', 'grep',
+  'which', 'whoami', 'date', 'time', 'curl', 'wget', 'tar',
+  'mkdir', 'touch', 'cp', 'mv', 'ping', 'ssh', 'scp',
+];
+
 const dangerousPatterns = [
   { pattern: /rm\s+-rf\s+\//, msg: '⚠ 危险命令: rm -rf / 会删除整个系统' },
+  { pattern: /rm\s+-rf\s+\/\*/, msg: '⚠ 危险命令: 删除根目录所有文件' },
   { pattern: /mkfs/, msg: '⚠ 危险命令: 格式化磁盘操作' },
   { pattern: /dd\s+if=/, msg: '⚠ 危险命令: dd 磁盘写入操作' },
   { pattern: />\s*\/dev\//, msg: '⚠ 危险命令: 写入设备文件' },
@@ -31,6 +39,10 @@ const dangerousPatterns = [
 ];
 
 function safetyCheck(command: string): string | null {
+  // White list: known safe commands pass through immediately
+  const firstWord = command.trim().split(/\s+/)[0].toLowerCase();
+  if (safePrefixes.includes(firstWord)) return null;
+  // Black list: check for dangerous patterns
   for (const d of dangerousPatterns) {
     if (d.pattern.test(command)) return d.msg;
   }

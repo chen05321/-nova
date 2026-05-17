@@ -355,6 +355,18 @@ export class NovaAgent {
     this.foraging.start(60000);
     setInterval(() => this.learning.learnCycle(), 300000);
 
+    // Watchdog: listen for reincarnation signal (evolution via code change)
+    this.bus.on('system:reincarnation_ready', () => {
+      console.log('\n[看门狗] 🧬 进化信号收到，新技能代码已写入。准备重生...');
+      this.foraging.stop();
+      this.bus.stopHeart();
+      this.savePersonality();
+      setTimeout(() => {
+        console.log('[看门狗] ♻ 进程自毁，重启后新器官生效。');
+        process.exit(0);
+      }, 2000);
+    });
+
     // Sleep monitor: sleep when energy too low, wake when recovered
     this.bus.on('heart:beat', () => {
       const energy = this.bus.energyLevel;

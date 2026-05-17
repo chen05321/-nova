@@ -74,6 +74,14 @@ export class MusculoskeletalSystem extends System {
     return best;
   }
 
+  // Apply upgrade bonus from anabolic upgrades
+  applyGlobalSuccessBonus(bonus: number): void {
+    for (const [, tool] of this.tools) {
+      tool.successRate = Math.min(1.0, tool.successRate + bonus);
+    }
+    this.log(`💪 All tools success rate +${bonus * 100}%`);
+  }
+
   getBiometrics(): Biometrics {
     return {
       system: this.name,

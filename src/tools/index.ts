@@ -16,13 +16,6 @@ export interface Tool {
 class CentralRegistry {
   private tools = new Map<string, Tool>();
 
-  constructor() {
-    this.register(writeFileTool);
-    this.register(readFileTool);
-    this.register(shellTool);
-    this.register(webFetchTool);
-  }
-
   public register(tool: Tool): void {
     this.tools.set(tool.name, tool);
   }
@@ -35,8 +28,6 @@ class CentralRegistry {
     return Array.from(this.tools.values());
   }
 }
-
-export const ToolRegistry = new CentralRegistry();
 
 export const writeFileTool: Tool = {
   name: 'write',
@@ -117,6 +108,12 @@ export const shellTool: Tool = {
     });
   }
 };
+
+export const ToolRegistry = new CentralRegistry();
+ToolRegistry.register(writeFileTool);
+ToolRegistry.register(readFileTool);
+ToolRegistry.register(shellTool);
+ToolRegistry.register(webFetchTool);
 
 export function getBuiltinTools(): Tool[] {
   return ToolRegistry.getAll();

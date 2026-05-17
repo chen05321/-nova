@@ -51,7 +51,9 @@ Use tools freely—you have full access.`;
     // Load recent conversation history from memory
     const recent = this.memory.getRecentMessages(6);
     if (recent.length > 0) {
-      this.conversationHistory = recent.map(m => ({ role: m.role, content: m.content }));
+      this.conversationHistory = recent
+        .filter(m => m.role !== 'system')
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
       this.log(`Loaded ${this.conversationHistory.length} past messages from memory`);
     }
 

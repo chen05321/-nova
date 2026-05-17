@@ -37,15 +37,13 @@ export class DeepSeekAdapter extends LLMAdapter {
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`DeepSeek API error ${response.status}: ${err}`);
+      try { const err = await response.text(); throw new Error(`API error ${response.status}`); } catch { throw new Error(`API error ${response.status}`); }
     }
 
-    const data = await response.json() as {
-      choices: { message: { content: string } }[];
-      usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-      model: string;
-    };
+    let data: any;
+    try { data = await response.json(); } catch {
+      throw new Error('API returned invalid JSON');
+    }
 
     return {
       content: data.choices[0]?.message?.content || '',

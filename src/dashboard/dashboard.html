@@ -217,7 +217,7 @@ function showDrop(type,event){
  if(type==='profiles')genericDrop('配置','<div style="padding:8px;font-size:11px;color:#555">配置管理功能开发中。</div>');
  if(type==='keys')genericDrop('密钥','<div style="padding:8px;font-size:11px;color:#555">API 密钥在"模型"中添加时配置。<br>点击左侧"模型"管理密钥。</div>');
  if(type==='plugins')genericDrop('插件','<div style="padding:8px;font-size:11px;color:#555">MCP 插件支持，创建 superbody.mcp.json 配置。</div>');
- if(type==='skills')genericDrop('技能','<div style="padding:8px;font-size:11px;color:#555">技能系统开发中。</div>');
+ if(type==='skills')renderDropSkills();
  if(type==='cron')genericDrop('定时','<div style="padding:8px;font-size:11px;color:#555">定时任务功能开发中。</div>');
  if(type==='config')genericDrop('设置','<div style="padding:8px;font-size:11px;color:#555;margin-bottom:6px">语言 / 刷新</div>'+
   '<div class="di" onclick="setLang(\'zh\')">🇨🇳 中文</div><div class="di" onclick="setLang(\'en\')">🇺🇸 English</div>'+

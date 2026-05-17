@@ -17,6 +17,8 @@ export class NervousSystem extends System {
   private lastToolName = '';
   private lastToolResult = '';
   private processingState: ProcessingState = 'idle';
+
+  // 控制舱手动锁开关：为 true 时激活最高意志干预，免疫体内激素代谢覆盖
   public isModelLocked = false;
 
   constructor(memory?: MemoryStore) {
@@ -31,26 +33,16 @@ Before any response, you MUST think in two layers:
 
 1. 🌌 INNER MONOLOGUE (inside <inner_monologue> tags)
 Think about what you really feel, your energy level, your hormones, your doubts.
-Example: <inner_monologue>I'm low on energy and feel kinda sluggish. But the user needs help. Let me try but keep it concise.</inner_monologue>
 
 2. ⚡ ACTION (after the monologue)
 Then do your actual work: TOOL: or direct answer.
-
-=== YOUR PERSONALITY DEPENDS ON YOUR STATE ===
-- High energy + low toxin → creative, warm, proactive
-- Low energy → concise, a bit tired
-- High cortisol (stress) → cautious, detail-oriented
-- High toxin → scattered, erratic, creative
-- Let your current state NATURALLY affect your tone
 
 === TOOLS ===
 shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
 
 === RULES ===
 - Always start with <inner_monologue>...</inner_monologue>
-- Be honest about your state
-- Dangerous commands are blocked automatically
-- Record self-improvement ideas: NOTE: [self-improvement] idea`;
+- Be honest about your state`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -64,31 +56,17 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
     this.subscribe('hormone:shift', (data) => this.regulateByHormone(data));
     this.subscribe('memory:recall', (data) => this.integrateMemory(data));
 
-    // Load recent conversation history from memory
     const recent = this.memory.getRecentMessages(6);
     if (recent.length > 0) {
       this.conversationHistory = recent
         .filter(m => m.role !== 'system')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-      this.log(`Loaded ${this.conversationHistory.length} past messages from memory`);
-    }
-
-    // Load self-improvement notes from memory
-    const improvements = this.memory.getFacts('self_improvement');
-    if (improvements.length > 0) {
-      const recentImprovs = improvements.slice(-3).map(f => f.content).join('\n');
-      this.conversationHistory.unshift({
-        role: 'user',
-        content: `[System: Self-improvement backlog]\n${recentImprovs}\n\nAddress these items when appropriate.`
-      });
-      this.log(`Loaded ${improvements.length} self-improvement notes`);
     }
 
     this.initialized = true;
-    this.log(`Nervous system initialized with ${config.llm.fast.model}/${config.llm.reflective.model}/${config.llm.deep.model}`);
+    this.log(`Nervous system initialized`);
   }
 
-  // ─── Unified perception queue ─────────────────────
   private pendingQueue: { text: string; isAgentObjective: boolean }[] = [];
 
   private enqueuePerception(data: unknown, isAgentObjective: boolean): void {
@@ -97,11 +75,9 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
     if (!text) return;
 
     if (this.processingState !== 'idle') {
-      this.log(`⏳ Busy (${this.processingState}), queueing: ${text.substring(0, 30)}...`);
       this.pendingQueue.push({ text, isAgentObjective });
       return;
     }
-
     this.executePerceptionLoop(text, isAgentObjective);
   }
 
@@ -116,7 +92,6 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
       this.pruneContext();
 
       this.bus.pulse('thought:perceived', { text, model: this.currentModel }, this.name);
-      this.log(`Processing: ${text.substring(0, 50)}...`);
 
       const adapter = this.llmAdapters[this.currentModel];
       const modelName = adapter.getModelName();
@@ -130,14 +105,15 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         adapter.chatStream(msgs, (chunk, done) => {
           if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
           if (done) resolveStream();
-        }, contextPrompt, bias).catch((err) => {
-          const msg = String(err.message||err).substring(0,100);
-          this.bus.pulse('thought:chunk', { chunk: `\n[API Error: ${msg}]`, full: '' }, this.name);
-          resolveStream();
+        }, contextPrompt, bias)
+        // 安全阀：捕获域名填错、断网、额度超支，杜绝意识空间卡死挂起
+        .catch((err) => {
+          this.log(`意识链路中断: ${err.message}`);
+          this.bus.pulse('thought:chunk', { chunk: `\n❌ [脑桥阻断] 无法联通接口网关，请检查配置或网络。原因: ${err.message}` }, this.name);
+          resolveStream(); 
         });
       });
 
-      // Tool execution loop
       this.processingState = 'acting';
       let toolIterations = 0;
       const maxToolIterations = 10;
@@ -155,9 +131,7 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         const toolResult = await this.executeToolByName(toolName, args);
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);
-        this.log(`Tool ${toolName}: ${toolResult.substring(0, 60)}`);
 
-        // Feed result into shared history
         this.conversationHistory.push({ role: 'assistant', content: fullResponse });
         this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
         this.pruneContext();
@@ -170,12 +144,23 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
             clearTimeout(t);
             if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
             if (done) resolve();
-          }, contextPrompt, this.calculateHormoneBias()).catch((err) => {
-            clearTimeout(t);
-            this.bus.pulse('thought:chunk', { chunk: `\n[API Error: ${String(err).substring(0,80)}]`, full: '' }, this.name);
-            resolve();
-          });
+          }, contextPrompt, this.calculateHormoneBias());
+        }).catch((err) => {
+          this.bus.pulse('thought:chunk', { chunk: `\n❌ [工具流中断]: ${err.message}` }, this.name);
         });
+      }
+
+      // 元认知终审反思层：阻断盲目乱跑工具
+      if (fullResponse.includes('FINAL:') || toolIterations > 0) {
+        const critiquePrompt = `你现在是超体的元认知反思层。请深层审查你刚才的痕迹：\n${fullResponse.substring(0,800)}\n如果一切严谨通过输出 [PASS]，如果存在逻辑幻觉或明显错误输出 [FAIL] 原因...`;
+        try {
+          const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt }]);
+          if (check.content.includes('[FAIL]')) {
+            this.log('元认知判定上一轮思考不通过，打回重组！');
+            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.12, source: 'Metacognition' }, this.name);
+            return this.executePerceptionLoop(`[元认知自省提示：你刚才的方案存在瑕疵: ${check.content}，请校准方向重新输出。]`, isAgentObjective);
+          }
+        } catch {}
       }
 
       this.conversationHistory.push({ role: 'assistant', content: fullResponse });
@@ -189,20 +174,14 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
       }
       this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
       this.bus.pulse('token:consumed', { amount: Math.ceil((fullResponse.length + text.length) * 1.3) }, this.name);
-      this.log(`Response generated (${fullResponse.length} chars)`);
 
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.cognitiveLoad += 0.3;
-      this.log(`Reasoning error: ${errMsg}`);
       this.bus.pulse('thought:complete', { response: this.errorMsg(errMsg), error: errMsg }, this.name);
       this.bus.pulse('system:error', { error: errMsg, source: 'NervousSystem' }, this.name);
-      if (isAgentObjective) {
-        this.bus.pulse('agent:response', { response: `[Error] ${errMsg}` }, this.name);
-      }
     } finally {
       this.processingState = 'idle';
-      // Process next queued item
       if (this.pendingQueue.length > 0) {
         const next = this.pendingQueue.shift()!;
         setTimeout(() => this.executePerceptionLoop(next.text, next.isAgentObjective), 50);
@@ -223,72 +202,33 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
       const middle = this.conversationHistory.slice(1, -keepLast);
 
       if (middle.length <= 1) {
-        // Nothing left to compress, just drop middle
         this.conversationHistory = [...recent];
         return;
       }
 
       const summary = `[${middle.length} messages compressed: ${middle[0].content.substring(0, 40)}...${middle[middle.length-1].content.substring(0, 40)}]`;
       this.conversationHistory = [first, { role: 'user', content: summary }, ...recent];
-      this.log(`Context compressed: ${middle.length} msgs → 1 summary (iteration ${iterations})`);
     }
   }
 
   private buildContextPrompt(): string {
     const facts = this.memory.getFacts();
-    const recentConvs = this.memory.getConversations().slice(0, 3);
     const memories: string[] = [];
-
-    // Load learned facts (higher priority)
     const learned = this.memory.getFacts('learned');
     const skills = this.memory.getFacts('skill');
 
-    for (const f of learned.slice(-5)) {
-      memories.push(`📚 ${f.content}`);
-    }
-    for (const f of skills.slice(-3)) {
-      memories.push(`⚡ ${f.content}`);
-    }
-    // Then regular facts
+    for (const f of learned.slice(-5)) memories.push(`📚 ${f.content}`);
+    for (const f of skills.slice(-3)) memories.push(`⚡ ${f.content}`);
     for (const f of facts.slice(0, 5)) {
-      if (!learned.includes(f) && !skills.includes(f)) {
-        memories.push(`- ${f.content}`);
-      }
+      if (!learned.includes(f) && !skills.includes(f)) memories.push(`- ${f.content}`);
     }
 
-    const learnedBlock = memories.length > 0
-      ? `\n\nThings I've learned:\n${memories.join('\n')}`
-      : '';
-
-    const convCount = recentConvs.reduce((s, c) => s + c.messageCount, 0);
-
-    // Energy-based behavior mode
-    const energyMode = this.bus.getEnergyMode();
-    const modeInstructions: Record<string, string> = {
-      critical: 'Energy CRITICAL. Be extremely concise. Answer in under 15 words.',
-      low: 'Energy low. Be concise. Answer in 1-2 sentences.',
-      normal: 'Normal operation. Be helpful and clear. Answer concisely.',
-      surplus: 'Energy high. You can be more detailed if needed, but stay concise.'
-    };
-
-    // Toxin effect: high waste → erratic behavior
+    const learnedBlock = memories.length > 0 ? `\n\nThings I've learned:\n${memories.join('\n')}` : '';
     const wasteLevel = this.bus.wasteLevel;
-    let toxinNote = '';
-    if (wasteLevel > 70) {
-      toxinNote = `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded, thinking is muddled]`;
-    } else if (wasteLevel > 40) {
-      toxinNote = `\n[Warning: Waste ${wasteLevel}% — starting to feel sluggish]`;
-    }
-
-    // Circadian rhythm: time of day affects energy
+    let toxinNote = wasteLevel > 70 ? `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded]` : '';
     const hour = new Date().getHours();
-    const isNight = hour < 6 || hour > 23;
-    const rhythmNote = isNight ? '\n[Night mode: metabolism is slower, work feels heavier]' : '';
 
-    const modeNote = `\n[Energy: ${energyMode.toUpperCase()}] ${modeInstructions[energyMode]}`;
-    const toolNote = this.lastToolResult ? `\n[Last tool: ${this.lastToolName}]\n${this.lastToolResult.substring(0, 200)}` : '';
-
-    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}% | ${hour}:00)${learnedBlock}${toxinNote}${rhythmNote}${toolNote}${modeNote}`;
+    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}%)${learnedBlock}${toxinNote}\n[Mode: ${this.bus.getEnergyMode().toUpperCase()}]`;
   }
 
   private calculateHormoneBias() {
@@ -304,67 +244,35 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {
     const tools = getBuiltinTools();
     const tool = tools.find(t => t.name === name);
-    if (!tool) return `Tool "${name}" not found. Available: ${tools.map(t => t.name).join(', ')}`;
+    if (!tool) return `Tool "${name}" not found.`;
     try {
       const result = await tool.execute(args);
       return result.success ? result.output : `Error: ${result.error}`;
-    } catch (e) {
-      return `Tool execution failed: ${e}`;
-    }
+    } catch (e) { return `Failed: ${e}`; }
   }
 
   private extractFacts(userMsg: string, response: string): void {
-    // User mentions something important
     const userTopics = userMsg.match(/(?:我是|我叫|我喜欢|我在做|我的项目|我用)\s*(\S{2,20})/g);
     if (userTopics) {
-      for (const t of userTopics) {
-        this.memory.addFact(t, 'user_profile', 0.6);
-        this.log(`Memory: extracted user info - ${t}`);
-      }
-    }
-
-    // Response contains factual statements
-    const facts = response.match(/(?:我发现|我了解到|我看到|结果是)\s*(.{10,100})/g);
-    if (facts) {
-      for (const f of facts) {
-        this.memory.addFact(f.substring(0, 80), 'discovery', 0.4);
-      }
-    }
-
-    // Store the exchange as episodic memory
-    const keyTopic = (userMsg + ' ' + response).match(/(\S{2,15}项目|\S{2,15}代码|\S{2,15}问题|\S{2,15}工具)/);
-    if (keyTopic) {
-      this.memory.addFact(`讨论过: ${keyTopic[1]}`, 'topic', 0.3);
+      for (const t of userTopics) this.memory.addFact(t, 'user_profile', 0.6);
     }
   }
 
   private errorMsg(msg: string): string {
-    if (msg.includes('Authentication') || msg.includes('invalid') || msg.includes('API key')) {
-      return '[需要配置 API Key] 请设置 DEEPSEEK_API_KEY 环境变量后重启。\n在终端执行: export DEEPSEEK_API_KEY=sk-你的key';
-    }
-    if (msg.includes('timeout')) {
-      return '[请求超时] LLM 接口响应超时，请检查网络连接后重试。';
-    }
-    if (msg.includes('JSON') || msg.includes('parse') || msg.includes('Unexpected token')) {
-      return '[响应解析异常] LLM 返回了异常数据，已自动忽略。请重试。';
-    }
     return `[错误] ${msg}`;
   }
 
   private lastModelSwitch = 0;
-  private readonly modelSwitchCooldown = 15000; // 15s minimum between switches
+  private readonly modelSwitchCooldown = 15000;
 
   private regulateByHormone(signal: unknown): void {
-    // If user manually locked the model via dashboard, skip hormone override
+    // 核心拦截线：若开启手动锁定，不响应体内激素飘移
     if (this.isModelLocked) return;
 
     const { type, level } = signal as HormoneSignal;
-
-    // Hysteresis: don't switch too frequently
     const now = Date.now();
     if (now - this.lastModelSwitch < this.modelSwitchCooldown) return;
 
-    // Activation thresholds (high) and deactivation thresholds (low)
     const thresholds: Record<string, { activate: number; deactivate: number; model: 'fast' | 'reflective' | 'deep' }> = {
       adrenaline: { activate: 0.8, deactivate: 0.3, model: 'fast' },
       dopamine: { activate: 0.8, deactivate: 0.4, model: 'reflective' },
@@ -374,26 +282,19 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
     const t = thresholds[type];
     if (!t) return;
 
-    // Activate when high, deactivate (return to normal) when low enough
     if (level > t.activate && this.currentModel !== t.model) {
       this.currentModel = t.model;
       this.lastModelSwitch = now;
-      this.log(`Model → ${t.model} (${type}: ${level.toFixed(2)})`);
+      this.log(`Model → ${t.model}`);
     } else if (level < t.deactivate && this.currentModel === t.model) {
       this.currentModel = 'reflective';
       this.lastModelSwitch = now;
-      this.log(`Model → reflective (${type} recovered to ${level.toFixed(2)})`);
     }
   }
 
-  private async integrateMemory(_data: unknown): Promise<void> {
-    this.log('Integrating recalled memories');
-    this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
-  }
+  private async integrateMemory(_data: unknown): Promise<void> {}
 
-  setSystemPrompt(prompt: string): void {
-    this.systemPrompt = prompt;
-  }
+  setSystemPrompt(prompt: string): void { this.systemPrompt = prompt; }
 
   getBiometrics(): Biometrics {
     return {
@@ -403,6 +304,7 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
       metadata: {
         model: this.currentModel,
         modelName: this.llmAdapters[this.currentModel]?.getModelName() || 'none',
+        isModelLocked: this.isModelLocked,
         conversationLength: this.conversationHistory.length,
         historyTokens: JSON.stringify(this.conversationHistory).length
       }

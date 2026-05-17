@@ -17,6 +17,67 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
     };
 
     try {
+      // GET: 读取本地配置文件提供给前端回显
+      if (url.pathname === '/api/control/config' && req.method === 'GET') {
+        try {
+          const configPath = path.join(process.cwd(), 'nova.config.json');
+          let currentConfig = { provider: 'deepseek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash', hasKey: false };
+          
+          if (fs.existsSync(configPath)) {
+            try {
+              const fileData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+              currentConfig.provider = fileData.llm?.fast?.provider || 'deepseek';
+              currentConfig.baseUrl = fileData.llm?.fast?.baseUrl || 'https://api.deepseek.com';
+              currentConfig.model = fileData.llm?.fast?.model || 'deepseek-v4-flash';
+              currentConfig.hasKey = !!fileData.llm?.fast?.apiKey;
+            } catch {}
+          }
+          json({ success: true, config: currentConfig });
+        } catch (err) { json({ success: false, error: String(err) }, 500); }
+        return;
+      }
+
+      // POST: 持久化保存前端输入的渠道及模型，并向看门狗发信号执行有丝分裂热重启
+      if (url.pathname === '/api/control/config/save' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', () => {
+          try {
+            const { provider, baseUrl, model, apiKey } = JSON.parse(body);
+            const configPath = path.join(process.cwd(), 'nova.config.json');
+            let baseConfig = { llm: { fast: {}, reflective: {}, deep: {} } } as any;
+            
+            if (fs.existsSync(configPath)) {
+              try { baseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
+            }
+
+            const finalKey = (apiKey === '••••••••••••••••••••••••' || !apiKey)
+              ? baseConfig.llm?.fast?.apiKey : apiKey;
+
+            ['fast', 'reflective', 'deep'].forEach((tier) => {
+              if (!baseConfig.llm[tier]) baseConfig.llm[tier] = {};
+              baseConfig.llm[tier].provider = provider;
+              baseConfig.llm[tier].baseUrl = baseUrl;
+              
+              if (tier === 'deep' && provider === 'deepseek' && model === 'deepseek-v4-flash') {
+                baseConfig.llm[tier].model = 'deepseek-v4-pro';
+              } else {
+                baseConfig.llm[tier].model = model;
+              }
+              if (finalKey) baseConfig.llm[tier].apiKey = finalKey;
+            });
+
+            fs.writeFileSync(configPath, JSON.stringify(baseConfig, null, 2), 'utf-8');
+            json({ success: true });
+
+            setTimeout(() => {
+              bus.pulse('system:reincarnation_ready', { trigger: 'api_config_changed' }, 'DashboardServer');
+            }, 1000);
+          } catch (err) { json({ success: false, error: String(err) }, 400); }
+        });
+        return;
+      }
+
       // Status API
       if (url.pathname === '/api/status') {
         const energy = bus.getEnergyStats();
@@ -54,12 +115,10 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           const heart = bus.getHeartbeatState();
           const waste = bus.waste;
           const st = agent.getStatus();
-          const sysPrompt = (agent.nervous as any).systemPrompt || '';
-          const roleName = '通用';
           const modelName = (agent.nervous as any).currentModel || 'fast';
           const data = JSON.stringify({
             stage: st.stage, uptime: st.uptime, wisdom: agent.Wisdom,
-            energy, heart, model: modelName, role: roleName,
+            energy, heart, model: modelName, role: '通用',
             waste: { total: waste.total },
             biometrics: st.biometrics,
             learning: agent.learning.getStats()
@@ -72,7 +131,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // SSE: event bus pulse (thought chunks)
+      // SSE: event bus pulse
       if (url.pathname === '/api/event-bus-pulse') {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -97,58 +156,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // GET: read current config
-      if (url.pathname === '/api/control/config' && req.method === 'GET') {
-        const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
-        let cfg = { provider: 'deepseek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', hasKey: false };
-        try {
-          if (fs.existsSync(configPath)) {
-            const d = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-            cfg.provider = d.llm?.fast?.provider || 'deepseek';
-            cfg.baseUrl = d.llm?.fast?.baseUrl || 'https://api.deepseek.com';
-            cfg.model = d.llm?.fast?.model || 'deepseek-chat';
-            cfg.hasKey = !!(d.llm?.fast?.apiKey);
-          }
-        } catch {}
-        json({ success: true, config: cfg });
-        return;
-      }
-
-      // POST: save config with model field
-      if (url.pathname === '/api/control/config/save' && req.method === 'POST') {
-        let body = '';
-        req.on('data', (c) => body += c);
-        req.on('end', () => {
-          try {
-            const { provider, baseUrl, model, apiKey } = JSON.parse(body);
-            // Normalize: strip trailing /v1, fix model names
-            const cleanUrl = String(baseUrl).replace(/\/v1\/?$/, '').replace(/\/$/, '');
-            const cleanModel = model === 'deepseek' ? 'deepseek-v4-flash' : model;
-            const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
-            let base: any = { llm: { fast: {}, reflective: {}, deep: {} } };
-            try { if (fs.existsSync(configPath)) base = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
-
-            const finalKey = (apiKey === '••••••••••••••••••••••••' || !apiKey) ? base.llm?.fast?.apiKey : apiKey;
-
-            for (const tier of ['fast', 'reflective', 'deep']) {
-              if (!base.llm[tier]) base.llm[tier] = {};
-              base.llm[tier].provider = provider;
-              base.llm[tier].baseUrl = cleanUrl;
-              base.llm[tier].model = (tier === 'deep' && provider === 'deepseek' && cleanModel === 'deepseek-v4-flash') ? 'deepseek-v4-pro' : (cleanModel || 'deepseek-v4-flash');
-              if (finalKey) base.llm[tier].apiKey = finalKey;
-            }
-
-            const configDir = path.dirname(configPath);
-            if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
-            fs.writeFileSync(configPath, JSON.stringify(base, null, 2), 'utf-8');
-            json({ success: true });
-            setTimeout(() => bus.pulse('system:reincarnation_ready', { trigger: 'config_saved' }, 'Dashboard'), 1000);
-          } catch (e: any) { json({ success: false, error: e.message }, 400); }
-        });
-        return;
-      }
-
-      // Control: model override
+      // Control: model override，支持解除硬锁定，退回自动模式
       if (url.pathname === '/api/control/model' && req.method === 'POST') {
         let body = '';
         req.on('data', (c) => body += c);
@@ -157,6 +165,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             const { mode } = JSON.parse(body);
             if (mode === 'auto') {
               (agent.nervous as any).isModelLocked = false;
+              (agent.nervous as any).currentModel = 'reflective';
               json({ ok: true });
             } else if (mode && ['fast', 'reflective', 'deep'].includes(mode)) {
               (agent.nervous as any).currentModel = mode;
@@ -168,7 +177,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // Control: physiology (sleep/flush)
+      // Control: physiology
       if (url.pathname === '/api/control/physiology' && req.method === 'POST') {
         let body = '';
         req.on('data', (c) => body += c);
@@ -183,7 +192,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // Control: upgrade purchase
+      // Control: upgrade
       if (url.pathname === '/api/control/upgrade' && req.method === 'POST') {
         let body = '';
         req.on('data', (c) => body += c);
@@ -197,7 +206,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // POST: chat input
+      // POST: chat input (saves response to memory on thought:complete)
       if (url.pathname === '/api/input' && req.method === 'POST') {
         let body = '';
         req.on('data', (c) => body += c);
@@ -208,10 +217,30 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
               const memory = (agent as any).memory;
               if (memory) memory.addMessage('user', text);
               agent.bus.pulse('input:raw', { text }, 'Dashboard');
+              // Save assistant response to memory once complete
+              const onComplete = (event: any) => {
+                const resp = event.payload?.response || '';
+                if (memory && resp) memory.addMessage('assistant', resp);
+                agent.bus.removeListener('thought:complete', onComplete);
+              };
+              agent.bus.once('thought:complete', onComplete);
               json({ ok: true });
             } else { json({ ok: false }, 400); }
           } catch { json({ ok: false }, 400); }
         });
+        return;
+      }
+
+      // POST: create new session
+      if (url.pathname === '/api/session/new' && req.method === 'POST') {
+        const memory = (agent as any).memory;
+        if (memory) {
+          const name = url.searchParams.get('name') || `会话 ${new Date().toLocaleTimeString()}`;
+          const id = memory.createConversation(name);
+          json({ ok: true, id });
+          return;
+        }
+        json({ ok: false }, 400);
         return;
       }
 
@@ -225,9 +254,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com' },
             anthropic: { name: 'Anthropic', baseUrl: 'https://api.anthropic.com' },
             openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
-            copilot: { name: 'GitHub Copilot', baseUrl: 'https://api.githubcopilot.com' },
-            gemini: { name: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com' },
-            'opencode-go': { name: 'OpenCode Go', baseUrl: 'https://opencode.ai/zen/go/v1' }
+            gemini: { name: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com' }
           };
           for (const [key, creds] of Object.entries(pool)) {
             const info = map[key] || { name: key, baseUrl: '' };
@@ -249,32 +276,39 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // Model switch
-      if (url.pathname === '/api/model' && req.method === 'POST') {
-        const m = url.searchParams.get('m');
-        if (m && ['fast', 'reflective', 'deep'].includes(m)) {
-          (agent.nervous as any).currentModel = m;
-          json({ ok: true, model: m });
+      // Chat history
+      if (url.pathname === '/api/chat/history') {
+        const memory = (agent as any).memory;
+        if (memory) {
+          const msgs = memory.getRecentMessages(20);
+          json(msgs.map((m: any) => ({ role: m.role, content: m.content })));
           return;
         }
-        json({ ok: false }, 400);
+        json([]);
         return;
       }
 
-      // Role switch
-      if (url.pathname === '/api/role' && req.method === 'POST') {
-        const r = url.searchParams.get('r');
-        if (r && ROLE_PRESETS[r]) {
-          const role = ROLE_PRESETS[r];
-          agent.nervous.setSystemPrompt(role.prompt);
-          if (role.personality) {
-            for (const [k, v] of Object.entries(role.personality)) {
-              (agent as any).personality[k] = v;
-            }
-          }
-          json({ ok: true, role: r });
+      // Conversations 历史流：为未命名线程增加自然数索引优雅降级
+      if (url.pathname === '/api/convs') {
+        const memory = (agent as any).memory;
+        if (memory) {
+          const convs = memory.getConversations().slice(0, 20);
+          json(convs.map((c: any, idx: number) => ({
+            id: c.id,
+            name: c.name || `意图线程 #${idx + 1}`, 
+            msgs: c.messageCount || 0,
+            current: c.id === memory.getCurrentConversationId()
+          })));
           return;
         }
+        json([]);
+        return;
+      }
+
+      if (url.pathname === '/api/conv/switch' && req.method === 'POST') {
+        const id = url.searchParams.get('id') || '';
+        const memory = (agent as any).memory;
+        if (memory) { memory.switchConversation(id); json({ ok: true }); return; }
         json({ ok: false }, 400);
         return;
       }
@@ -322,94 +356,15 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         json({ ok: false }, 400);
         return;
       }
-
-      // Apply upgrade
-      if (url.pathname === '/api/upgrade' && req.method === 'POST') {
-        const id = url.searchParams.get('id') || '';
-        const ok = agent.applyUpgrade(id);
-        json({ ok });
-        return;
-      }
-
-      // Chat (simple JSON)
-      if (url.pathname === '/api/chat') {
-        const msg = url.searchParams.get('msg') || '';
-        if (!msg) { json({ response: '' }); return; }
-
-        const memory = (agent as any).memory;
-        if (memory) memory.addMessage('user', msg);
-
-        let responded = false;
-        const timer = setTimeout(() => {
-          if (!responded) { responded = true; json({ response: '[timeout]' }); }
-        }, 60000);
-
-        const handler = (event: any) => {
-          if (responded) return;
-          responded = true;
-          clearTimeout(timer);
-          const resp = event.payload?.response || '';
-          if (memory && resp) memory.addMessage('assistant', resp);
-          json({ response: resp });
-        };
-
-        agent.bus.once('thought:complete', handler);
-        agent.bus.pulse('input:raw', { text: msg }, 'Dashboard');
-        return;
-      }
-
-      // Logs
-      if (url.pathname === '/api/logs') {
-        const log = bus.getEventLog().slice(-200);
-        json(log.map((m: any) => ({
-          event: Object.keys(m.payload || {}).join(' '),
-          origin: m.origin,
-          timestamp: m.timestamp
-        })));
-        return;
-      }
-
-      // Chat history
-      if (url.pathname === '/api/chat/history') {
-        const memory = (agent as any).memory;
-        if (memory) {
-          const msgs = memory.getRecentMessages(20);
-          json(msgs.map((m: any) => ({ role: m.role, content: m.content })));
-          return;
-        }
-        json([]);
-        return;
-      }
-
-      // Conversations
-      if (url.pathname === '/api/convs') {
-        const memory = (agent as any).memory;
-        if (memory) {
-          const convs = memory.getConversations().slice(0, 20);
-          json(convs.map((c: any) => ({ id: c.id, name: c.name, msgs: c.messageCount, current: c.id === memory.getCurrentConversationId() })));
-          return;
-        }
-        json([]);
-        return;
-      }
-
-      if (url.pathname === '/api/conv/switch' && req.method === 'POST') {
-        const id = url.searchParams.get('id') || '';
-        const memory = (agent as any).memory;
-        if (memory) { memory.switchConversation(id); json({ ok: true }); return; }
-        json({ ok: false }, 400);
-        return;
-      }
     } catch (e: any) { json({ error: e.message }, 500); return; }
 
-    // Serve dashboard HTML
     try {
       const html = fs.readFileSync(htmlPath, 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch {
       res.writeHead(500);
-      res.end('Dashboard HTML not found. Run: npm run build');
+      res.end('Dashboard HTML not found.');
     }
   });
 

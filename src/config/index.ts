@@ -3,13 +3,12 @@ import * as path from 'path';
 import * as os from 'os';
 import { config as dotenvConfig } from 'dotenv';
 
-// Load .env from: cwd → ~/.nova/ → project dir
 const HOME_ENV = path.join(os.homedir(), '.nova', '.env');
 const PROJECT_ENV = path.join(__dirname, '..', '..', '.env');
 
 dotenvConfig({ path: PROJECT_ENV });
 dotenvConfig({ path: HOME_ENV });
-dotenvConfig(); // cwd .env
+dotenvConfig();
 
 export interface LLMProviderConfig {
   provider: 'openai' | 'anthropic' | 'deepseek' | string;
@@ -28,125 +27,46 @@ export interface GrowthConfig {
 }
 
 export interface NovaConfig {
-  llm: {
-    fast: LLMProviderConfig;
-    reflective: LLMProviderConfig;
-    deep: LLMProviderConfig;
-  };
+  llm: { fast: LLMProviderConfig; reflective: LLMProviderConfig; deep: LLMProviderConfig };
   growth: GrowthConfig;
-  respiratory: {
-    tokenCapacity: number;
-    refillRate: number;
-  };
-  memory: {
-    shortTermCapacity: number;
-    filterIntervalMs: number;
-  };
-  logging: {
-    level: 'debug' | 'info' | 'warn' | 'error';
-    verbose: boolean;
-  };
+  respiratory: { tokenCapacity: number; refillRate: number };
+  memory: { shortTermCapacity: number; filterIntervalMs: number };
+  logging: { level: 'debug' | 'info' | 'warn' | 'error'; verbose: boolean };
 }
 
 const DEFAULT_CONFIG: NovaConfig = {
   llm: {
-    fast: {
-      provider: 'deepseek',
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-v4-flash',
-      maxTokens: 1024,
-      temperature: 0.3
-    },
-    reflective: {
-      provider: 'deepseek',
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-v4-pro',
-      maxTokens: 2048,
-      temperature: 0.7
-    },
-    deep: {
-      provider: 'deepseek',
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: 'deepseek-v4-pro',
-      maxTokens: 4096,
-      temperature: 0.9
-    }
+    fast: { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY || '', model: 'deepseek-v4-flash', maxTokens: 1024, temperature: 0.3 },
+    reflective: { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY || '', model: 'deepseek-v4-flash', maxTokens: 2048, temperature: 0.7 },
+    deep: { provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY || '', model: 'deepseek-v4-pro', maxTokens: 4096, temperature: 0.9 }
   },
-  growth: {
-    actionsToChild: 5,
-    actionsToAdolescent: 20,
-    actionsToAdult: 50,
-    actionsToMature: 100
-  },
-  respiratory: {
-    tokenCapacity: 10000,
-    refillRate: 100
-  },
-  memory: {
-    shortTermCapacity: 100,
-    filterIntervalMs: 30000
-  },
-  logging: {
-    level: 'info',
-    verbose: false
-  }
+  growth: { actionsToChild: 5, actionsToAdolescent: 20, actionsToAdult: 50, actionsToMature: 100 },
+  respiratory: { tokenCapacity: 10000, refillRate: 100 },
+  memory: { shortTermCapacity: 100, filterIntervalMs: 30000 },
+  logging: { level: 'info', verbose: false }
 };
 
 let loadedConfig: NovaConfig | null = null;
 
 export function loadConfig(configPath?: string): NovaConfig {
   if (loadedConfig) return loadedConfig;
-
   const merged: NovaConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-
-  // Try loading from config file
-  const paths = [
-    configPath,
-    path.join(process.cwd(), 'nova.config.json'),
-    path.join(process.cwd(), 'nova.config.jsonc'),
-    path.join(process.cwd(), '.novarc'),
-    path.join(osHomedir(), '.nova', 'config.json')
-  ];
-
+  const paths = [configPath, path.join(process.cwd(), 'nova.config.json'), path.join(process.cwd(), '.novarc'), path.join(os.homedir(), '.nova', 'config.json')];
   for (const p of paths) {
     if (!p) continue;
-    try {
-      const content = fs.readFileSync(p, 'utf-8');
-      const fileConfig = JSON.parse(content);
-      deepMerge(merged, fileConfig);
-      break;
-    } catch {}
+    try { const c = JSON.parse(fs.readFileSync(p, 'utf-8')); deepMerge(merged, c); break; } catch {}
   }
-
-  // Try reading from OpenCode config (~/.hermes/auth.json)
   try {
-    const opencodeAuth = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.hermes', 'auth.json'), 'utf-8'));
-    const dsKey = opencodeAuth?.credential_pool?.deepseek?.[0]?.access_token;
-    if (dsKey && !merged.llm.fast.apiKey) {
-      merged.llm.fast.apiKey = dsKey;
-      merged.llm.reflective.apiKey = dsKey;
-      merged.llm.deep.apiKey = dsKey;
-      console.log('  ✓ Auto-loaded DeepSeek key from OpenCode');
-    }
+    const auth = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.hermes', 'auth.json'), 'utf-8'));
+    const key = auth?.credential_pool?.deepseek?.[0]?.access_token;
+    if (key && !merged.llm.fast.apiKey) { merged.llm.fast.apiKey = key; merged.llm.reflective.apiKey = key; merged.llm.deep.apiKey = key; }
   } catch {}
-
-  // Override API keys from env vars if set
-  if (process.env.DEEPSEEK_API_KEY) {
-    merged.llm.fast.apiKey = process.env.DEEPSEEK_API_KEY;
-    merged.llm.reflective.apiKey = process.env.DEEPSEEK_API_KEY;
-    merged.llm.deep.apiKey = process.env.DEEPSEEK_API_KEY;
-  }
-  if (process.env.OPENAI_API_KEY) {
-    merged.llm.fast.apiKey = process.env.OPENAI_API_KEY;
-    merged.llm.reflective.apiKey = process.env.OPENAI_API_KEY;
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    merged.llm.deep.apiKey = process.env.ANTHROPIC_API_KEY;
-  }
+  if (process.env.DEEPSEEK_API_KEY) { merged.llm.fast.apiKey = process.env.DEEPSEEK_API_KEY; merged.llm.reflective.apiKey = process.env.DEEPSEEK_API_KEY; merged.llm.deep.apiKey = process.env.DEEPSEEK_API_KEY; }
+  if (process.env.OPENAI_API_KEY) { merged.llm.fast.apiKey = process.env.OPENAI_API_KEY; merged.llm.reflective.apiKey = process.env.OPENAI_API_KEY; }
+  if (process.env.ANTHROPIC_API_KEY) { merged.llm.deep.apiKey = process.env.ANTHROPIC_API_KEY; }
   if (process.env.NOVA_FAST_MODEL) merged.llm.fast.model = process.env.NOVA_FAST_MODEL;
   if (process.env.NOVA_REFLECTIVE_MODEL) merged.llm.reflective.model = process.env.NOVA_REFLECTIVE_MODEL;
   if (process.env.NOVA_DEEP_MODEL) merged.llm.deep.model = process.env.NOVA_DEEP_MODEL;
-
   loadedConfig = merged;
   return merged;
 }
@@ -156,12 +76,6 @@ function deepMerge(target: any, source: any): void {
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
       if (!target[key]) target[key] = {};
       deepMerge(target[key], source[key]);
-    } else {
-      target[key] = source[key];
-    }
+    } else { target[key] = source[key]; }
   }
-}
-
-function osHomedir(): string {
-  return os.homedir();
 }

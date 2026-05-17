@@ -3,6 +3,7 @@ import { Biometrics, HormoneSignal } from './types';
 import { createLLM, LLMAdapter } from './llm';
 import { loadConfig } from './config';
 import { MemoryStore } from './memory';
+import { getBuiltinTools } from './tools';
 
 export class NervousSystem extends System {
   private cognitiveLoad = 0;
@@ -24,7 +25,16 @@ Available tools you can use when needed:
 
 You have long-term memory that persists across conversations.
 Forage for knowledge when you need to learn something new.
-Use your tools freely—you have full access.`;
+
+To use a tool, include in your response:
+TOOL: tool_name
+ARGS: {"key": "value"}
+
+Example:
+TOOL: shell
+ARGS: {"command": "ls -la"}
+
+Use tools freely—you have full access.`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -130,6 +140,18 @@ Use your tools freely—you have full access.`;
     return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | ${facts.length} facts)${factBlock}${modeNote}`;
   }
 
+  private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {
+    const tools = getBuiltinTools();
+    const tool = tools.find(t => t.name === name);
+    if (!tool) return `Tool "${name}" not found. Available: ${tools.map(t => t.name).join(', ')}`;
+    try {
+      const result = await tool.execute(args);
+      return result.success ? result.output : `Error: ${result.error}`;
+    } catch (e) {
+      return `Tool execution failed: ${e}`;
+    }
+  }
+
   private async processPerception(data: unknown): Promise<void> {
     const input = (data as { payload?: { text?: string } })?.payload;
     const text = (input as { text?: string })?.text;
@@ -155,28 +177,43 @@ Use your tools freely—you have full access.`;
       let fullResponse = '';
       const contextPrompt = this.buildContextPrompt();
 
-      await adapter.chatStream(msgs, (chunk, done) => {
-        if (chunk) {
-          fullResponse += chunk;
-          this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name);
-        }
-        if (done) {
-          this.conversationHistory.push({ role: 'assistant', content: fullResponse });
-          this.pruneContext();
-          this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
-          this.produceEnergy(2);
-          // Auto-extract key info as facts
-          this.extractFacts(text, fullResponse);
-          // Feed to urinary system for memory pruning
-          this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
-          this.bus.pulse('thought:complete', {
-            response: fullResponse,
-            model: modelName
-          }, this.name);
-          this.bus.pulse('thought:ready', { decision: fullResponse.substring(0, 500) }, this.name);
-          this.log(`Response generated (${fullResponse.length} chars)`);
-        }
-      }, contextPrompt);
+      // Get the response, stream it, wait for completion
+      await new Promise<void>((resolveStream) => {
+        adapter.chatStream(msgs, (chunk, done) => {
+          if (chunk) {
+            fullResponse += chunk;
+            this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name);
+          }
+          if (done) resolveStream();
+        }, contextPrompt);
+      });
+
+      // Check if LLM requested a tool
+      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)\s*\nARGS:\s*(\{[^}]+\})/);
+      if (toolMatch) {
+        const toolName = toolMatch[1];
+        const toolResult = await this.executeToolByName(toolName, JSON.parse(toolMatch[2]));
+        this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
+
+        // Feed result back for final response
+        const followMsgs = [...msgs, { role: 'assistant' as const, content: fullResponse }, { role: 'user' as const, content: `Tool result:\n${toolResult.substring(0, 2000)}\n\nProvide the answer to the user based on this result.` }];
+        fullResponse = '';
+        await new Promise<void>((resolve) => {
+          adapter.chatStream(followMsgs, (chunk, done) => {
+            if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
+            if (done) resolve();
+          }, contextPrompt);
+        });
+      }
+
+      this.conversationHistory.push({ role: 'assistant', content: fullResponse });
+      this.pruneContext();
+      this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
+      this.produceEnergy(2);
+      this.extractFacts(text, fullResponse);
+      this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
+      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
+      this.log(`Response generated (${fullResponse.length} chars)`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.cognitiveLoad += 0.3;

@@ -159,16 +159,6 @@ export class MemoryStore {
     save(this.data);
   }
 
-  // Archive old conversations: if a conversation has >100 messages, summarize the old ones
-  archiveConversation(): void {
-    const conv = this.data.conversations.find(c => c.id === this.currentConvId);
-    if (!conv || conv.messages.length < 100) return;
-    const old = conv.messages.slice(0, -80);
-    const summary = `[${old.length} archived messages: ${old[0].content.substring(0,30)}...${old[old.length-1].content.substring(0,30)}]`;
-    conv.messages = [{ id: uuid(), role: 'system', content: summary, timestamp: Date.now() }, ...conv.messages.slice(-80)];
-    save(this.data);
-  }
-
   getFacts(category?: string): { content: string; confidence: number }[] {
     let facts = this.data.facts;
     if (category) {

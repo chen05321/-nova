@@ -63,8 +63,8 @@ export class NovaAgent {
     this.memory = new MemoryStore();
     this.startTime = Date.now();
     this.loadPersonality();
-    this.foraging = new ForagingSystem(this.personality);
-    this.learning = new SelfLearningSystem();
+    this.foraging = new ForagingSystem(this.personality, this.memory);
+    this.learning = new SelfLearningSystem(this.memory);
     this.setupLifecycle();
   }
 
@@ -317,7 +317,7 @@ export class NovaAgent {
   async boot(): Promise<void> {
     console.log('[超体] Booting systems...');
 
-    this.nervous = new NervousSystem();
+    this.nervous = new NervousSystem(this.memory);
     this.musculoskeletal = new MusculoskeletalSystem();
     this.endocrine = new EndocrineSystem();
     this.respiratory = new RespiratorySystem();

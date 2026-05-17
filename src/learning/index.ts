@@ -59,9 +59,9 @@ export class SelfLearningSystem {
   private skills: Map<string, { name: string; description: string; trigger: string; usage: number }> = new Map();
   private skillProgress: Map<string, SkillPlan> = new Map();
 
-  constructor() {
+  constructor(memory?: MemoryStore) {
     this.bus = CirculatorySystem.getInstance();
-    this.memory = new MemoryStore();
+    this.memory = memory || new MemoryStore();
     this.loadGraph();
     this.loadSkillProgress();
   }

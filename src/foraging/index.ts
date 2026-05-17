@@ -31,9 +31,9 @@ export class ForagingSystem {
     '哲学', '逻辑学', '数学', '物理学', '天文学'
   ];
 
-  constructor(personality: PersonalityVector) {
+  constructor(personality: PersonalityVector, memory?: MemoryStore) {
     this.bus = CirculatorySystem.getInstance();
-    this.memory = new MemoryStore();
+    this.memory = memory || new MemoryStore();
     this.personality = personality;
   }
 

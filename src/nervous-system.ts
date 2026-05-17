@@ -11,7 +11,12 @@ export class NervousSystem extends System {
   private llmAdapters: Record<string, LLMAdapter> = {};
   private conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [];
   private maxHistoryTokens = 8000;
-  private memory: MemoryStore = new MemoryStore();
+  private memory: MemoryStore;
+
+  constructor(memory?: MemoryStore) {
+    super();
+    this.memory = memory || new MemoryStore();
+  }
   private systemPrompt = `You are Nova(超体), a self-evolving AI with built-in tools and memory.
 
 Available tools you can use when needed:

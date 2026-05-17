@@ -231,8 +231,8 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
         }, contextPrompt);
       });
 
-      // Check if LLM requested a tool
-      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)\s*(?:\nARGS:\s*(\{[^}]*\}))?/);
+      // Check if LLM requested a tool (match various formats)
+      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)(?:[\\n\s]+ARGS:\s*(\{[^}]*\}))?/i);
       if (toolMatch && toolMatch[2]) {
         const toolName = toolMatch[1];
         let args: Record<string, string> = {};

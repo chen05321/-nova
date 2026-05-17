@@ -213,10 +213,12 @@ Your self-assessments help improve your code.`;
       });
 
       // Check if LLM requested a tool
-      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)\s*\nARGS:\s*(\{[^}]+\})/);
-      if (toolMatch) {
+      const toolMatch = fullResponse.match(/TOOL:\s*(\w+)\s*(?:\nARGS:\s*(\{[^}]*\}))?/);
+      if (toolMatch && toolMatch[2]) {
         const toolName = toolMatch[1];
-        const toolResult = await this.executeToolByName(toolName, JSON.parse(toolMatch[2]));
+        let args: Record<string, string> = {};
+        try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
+        const toolResult = await this.executeToolByName(toolName, args);
         this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
 
         // Feed result back for final response

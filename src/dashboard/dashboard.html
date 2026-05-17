@@ -105,7 +105,17 @@ var pp={deepseek:{url:'https://api.deepseek.com',model:'deepseek-chat'},opencode
 if(cfgp)cfgp.addEventListener('change',function(e){if(e.target.value==='opencode'){setTimeout(function(){if(boi)boi.click()},200)}else{var c=pp[e.target.value];if(c){cfgb.value=c.url;if(cfgm)cfgm.value=c.model}}});
 async function loadCfg(){try{var r=await fetch('/api/control/config');var d=await r.json();if(d.success&&d.config){cfgp.value=d.config.provider||'deepseek';cfgb.value=d.config.baseUrl||'';if(cfgm)cfgm.value=d.config.model||'';cfgk.value=d.config.hasKey?'••••••••••••••••••••••••':''}}catch(e){}}
 if(cfgf)cfgf.addEventListener('submit',async function(e){e.preventDefault();try{var r=await fetch('/api/control/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:cfgp.value,baseUrl:cfgb.value,model:cfgm?cfgm.value:'',apiKey:cfgk.value})});var d=await r.json();if(d.success){bubble('system','⚡ 配置已保存，Nova 即将重启...');setTimeout(function(){window.location.reload()},3000)}else{alert('保存失败')}}catch(err){alert('连接失败')}});
-if(boi)boi.onclick=async function(){try{var r=await fetch('/api/opencode-key');var d=await r.json();if(d.providers&&d.providers.length>0){var p=d.providers[0];cfgp.value=p.name.toLowerCase().includes('deepseek')?'deepseek':'openai';cfgb.value=p.baseUrl||'https://api.deepseek.com';if(cfgm)cfgm.value=p.model||'deepseek-chat';cfgk.value=p.apiKey||'';bubble('system','📥 已导入 OpenCode 凭证')}else{alert('未找到凭证')}}catch(e){alert('导入失败')}};
+if(boi)boi.onclick=async function(){
+ try{var r=await fetch('/api/opencode-key');var d=await r.json();
+  if(d.providers&&d.providers.length>0){
+   var p=d.providers[0];cfgp.value='deepseek';cfgb.value='https://api.deepseek.com';if(cfgm)cfgm.value='deepseek-v4-flash';cfgk.value=p.apiKey||'';
+   var pr='deepseek',bu='https://api.deepseek.com',md='deepseek-v4-flash',ak=p.apiKey||'';
+   var sr=await fetch('/api/control/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pr,baseUrl:bu,model:md,apiKey:ak})});
+   var sd=await sr.json();
+   if(sd.success){bubble('system','✅ 已自动导入 OpenCode 凭证并保存，Nova 即将重启...');setTimeout(function(){window.location.reload()},3000)}
+   else{alert('保存失败')}
+  }else{alert('未找到 OpenCode 凭证')}
+ }catch(e){alert('导入失败: '+e.message)}};
 
 function bubble(r,t){
  var u=r==='user',w=document.createElement('div');

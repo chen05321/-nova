@@ -130,7 +130,11 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         adapter.chatStream(msgs, (chunk, done) => {
           if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
           if (done) resolveStream();
-        }, contextPrompt, bias);
+        }, contextPrompt, bias).catch((err) => {
+          const msg = String(err.message||err).substring(0,100);
+          this.bus.pulse('thought:chunk', { chunk: `\n[API Error: ${msg}]`, full: '' }, this.name);
+          resolveStream();
+        });
       });
 
       // Tool execution loop
@@ -166,7 +170,11 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
             clearTimeout(t);
             if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
             if (done) resolve();
-          }, contextPrompt, this.calculateHormoneBias());
+          }, contextPrompt, this.calculateHormoneBias()).catch((err) => {
+            clearTimeout(t);
+            this.bus.pulse('thought:chunk', { chunk: `\n[API Error: ${String(err).substring(0,80)}]`, full: '' }, this.name);
+            resolve();
+          });
         });
       }
 

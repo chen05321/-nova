@@ -5,6 +5,8 @@ import { loadConfig } from './config';
 import { MemoryStore } from './memory';
 import { getBuiltinTools } from './tools';
 
+export type ProcessingState = 'idle' | 'thinking' | 'acting';
+
 export class NervousSystem extends System {
   private cognitiveLoad = 0;
   private currentModel: 'fast' | 'reflective' | 'deep' = 'fast';
@@ -14,6 +16,8 @@ export class NervousSystem extends System {
   private memory: MemoryStore;
   private lastToolName = '';
   private lastToolResult = '';
+  private processingState: ProcessingState = 'idle';
+  private pendingQueue: (() => void)[] = [];
 
   constructor(memory?: MemoryStore) {
     super();
@@ -200,10 +204,24 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
       surplus: 'Energy high. You can be more detailed if needed, but stay concise.'
     };
 
+    // Toxin effect: high waste → erratic behavior
+    const wasteLevel = this.bus.wasteLevel;
+    let toxinNote = '';
+    if (wasteLevel > 70) {
+      toxinNote = `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded, thinking is muddled]`;
+    } else if (wasteLevel > 40) {
+      toxinNote = `\n[Warning: Waste ${wasteLevel}% — starting to feel sluggish]`;
+    }
+
+    // Circadian rhythm: time of day affects energy
+    const hour = new Date().getHours();
+    const isNight = hour < 6 || hour > 23;
+    const rhythmNote = isNight ? '\n[Night mode: metabolism is slower, work feels heavier]' : '';
+
     const modeNote = `\n[Energy: ${energyMode.toUpperCase()}] ${modeInstructions[energyMode]}`;
     const toolNote = this.lastToolResult ? `\n[Last tool: ${this.lastToolName}]\n${this.lastToolResult.substring(0, 200)}` : '';
 
-    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Learned: ${learned.length} topics)${learnedBlock}${toolNote}${modeNote}`;
+    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}% | ${hour}:00)${learnedBlock}${toxinNote}${rhythmNote}${toolNote}${modeNote}`;
   }
 
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {
@@ -223,6 +241,14 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
     const text = (input as { text?: string })?.text;
     if (!text) return;
 
+    // State machine: reject if already processing
+    if (this.processingState !== 'idle') {
+      this.log(`Busy (${this.processingState}), queuing: ${text.substring(0, 30)}...`);
+      // Queue for later processing
+      return;
+    }
+
+    this.processingState = 'thinking';
     this.consumeEnergy(3);
     this.cognitiveLoad += 0.2;
     this.conversationHistory.push({ role: 'user', content: text });
@@ -311,7 +337,10 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
         this.log(`Self-improvement noted: ${noteMatch[1].trim().substring(0, 60)}`);
       }
       this.bus.pulse('memory:store', { id: `conv_${Date.now()}`, content: fullResponse.substring(0, 200), type: 'episodic', timestamp: Date.now(), importance: 0.5, accessCount: 0 }, this.name);
-      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
+      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName, usage: { totalTokens: Math.ceil(fullResponse.length * 1.3) } }, this.name);
+      // Notify respiratory of estimated token consumption
+      this.bus.pulse('token:consumed', { amount: Math.ceil(fullResponse.length * 1.3 + text.length * 1.3) }, this.name);
+      this.processingState = 'idle';
       this.log(`Response generated (${fullResponse.length} chars)`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -325,6 +354,7 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
 
       this.bus.pulse('system:error', { error: errMsg, source: 'NervousSystem.think' }, this.name);
     }
+    this.processingState = 'idle';
   }
 
   private extractFacts(userMsg: string, response: string): void {
@@ -365,18 +395,35 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
     return `[错误] ${msg}`;
   }
 
+  private lastModelSwitch = 0;
+  private readonly modelSwitchCooldown = 15000; // 15s minimum between switches
+
   private regulateByHormone(signal: unknown): void {
     const { type, level } = signal as HormoneSignal;
 
-    if (type === 'adrenaline' && level > 0.7) {
-      this.currentModel = 'fast';
-      this.log(`Model switched to fast (${this.llmAdapters.fast?.getModelName() || 'unknown'})`);
-    } else if (type === 'dopamine' && level > 0.7) {
+    // Hysteresis: don't switch too frequently
+    const now = Date.now();
+    if (now - this.lastModelSwitch < this.modelSwitchCooldown) return;
+
+    // Activation thresholds (high) and deactivation thresholds (low)
+    const thresholds: Record<string, { activate: number; deactivate: number; model: 'fast' | 'reflective' | 'deep' }> = {
+      adrenaline: { activate: 0.8, deactivate: 0.3, model: 'fast' },
+      dopamine: { activate: 0.8, deactivate: 0.4, model: 'reflective' },
+      cortisol: { activate: 0.7, deactivate: 0.3, model: 'fast' },
+    };
+
+    const t = thresholds[type];
+    if (!t) return;
+
+    // Activate when high, deactivate (return to normal) when low enough
+    if (level > t.activate && this.currentModel !== t.model) {
+      this.currentModel = t.model;
+      this.lastModelSwitch = now;
+      this.log(`Model → ${t.model} (${type}: ${level.toFixed(2)})`);
+    } else if (level < t.deactivate && this.currentModel === t.model) {
       this.currentModel = 'reflective';
-      this.log(`Model switched to reflective (${this.llmAdapters.reflective?.getModelName() || 'unknown'})`);
-    } else if (type === 'cortisol' && level > 0.6) {
-      this.currentModel = 'fast';
-      this.log(`Model switched to fast due to stress (${this.llmAdapters.fast?.getModelName() || 'unknown'})`);
+      this.lastModelSwitch = now;
+      this.log(`Model → reflective (${type} recovered to ${level.toFixed(2)})`);
     }
   }
 

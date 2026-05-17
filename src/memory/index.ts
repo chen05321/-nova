@@ -47,10 +47,29 @@ function load(): MemoryFile {
   }
 }
 
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSave: MemoryFile | null = null;
+
 function save(data: MemoryFile): void {
-  ensureDir();
-  fs.writeFileSync(MEMORY_FILE, JSON.stringify(data, null, 2));
+  pendingSave = data;
+  if (saveTimer) return; // debounce: wait for pending write
+  saveTimer = setTimeout(() => {
+    if (pendingSave) {
+      ensureDir();
+      fs.writeFileSync(MEMORY_FILE, JSON.stringify(pendingSave, null, 2));
+      pendingSave = null;
+    }
+    saveTimer = null;
+  }, 3000);
 }
+
+// Force save on exit
+process.on('exit', () => {
+  if (pendingSave) {
+    ensureDir();
+    fs.writeFileSync(MEMORY_FILE, JSON.stringify(pendingSave, null, 2));
+  }
+});
 
 export class MemoryStore {
   private data: MemoryFile;

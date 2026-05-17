@@ -97,12 +97,15 @@ const readTool: Tool = {
     const filePath = args.path;
     if (!filePath) return { success: false, output: '', error: 'No path provided' };
 
-    // Try multiple paths: as-is, relative to CWD, relative to project root
+    // Try multiple paths to find the file
     const candidates = [
       filePath,
       path.resolve(filePath),
       path.join(PROJECT_ROOT, filePath),
-      path.join(PROJECT_ROOT, filePath.replace(/^src\//, 'src/')),
+      path.join(PROJECT_ROOT, filePath.replace(/^src\//, '')),
+      path.join(PROJECT_ROOT, filePath.replace(/^\//, '')),
+      path.join(PROJECT_ROOT, 'src', filePath.replace(/^src[/\\]/, '').replace(/^\//, '')),
+      filePath.replace(/^src\//, ''),
     ];
 
     for (const candidate of candidates) {

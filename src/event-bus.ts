@@ -118,7 +118,9 @@ export class CirculatorySystem extends EventEmitter {
     this.lastBeatTime = Date.now();
 
     // BMR: each beat consumes energy just to stay alive
-    this._energy = Math.max(0, this._energy - this.bmrPerBeat);
+    const hour = new Date().getHours();
+    const nightMultiplier = (hour < 6 || hour > 23) ? 2 : 1; // night costs double
+    this._energy = Math.max(0, this._energy - this.bmrPerBeat * nightMultiplier);
 
     // Gradually recover from debt
     if (this._debt > 0 && this._beat % 5 === 0) {

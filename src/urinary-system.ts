@@ -1,5 +1,8 @@
 import { System } from './system';
 import { Biometrics, MemoryEntry } from './types';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class UrinarySystem extends System {
   private shortTermMemory: Map<string, MemoryEntry> = new Map();
@@ -27,10 +30,25 @@ export class UrinarySystem extends System {
     }
   }
 
+  private immuneCleanup(): void {
+    // Clean up temp files created by learning processes
+    try {
+      const tmpDir = '/tmp';
+      const files = fs.readdirSync(tmpDir).filter(f => f.startsWith('nova_learn_') || f.startsWith('nova_tool_'));
+      for (const f of files) {
+        try {
+          fs.unlinkSync(path.join(tmpDir, f));
+          this.log(`Immune: cleaned up ${f}`);
+        } catch {}
+      }
+    } catch {}
+  }
+
   private filterCycle(): void {
     const before = this.shortTermMemory.size;
 
     let pruned = 0;
+    this.immuneCleanup();
     for (const [id, entry] of this.shortTermMemory) {
       const age = Date.now() - entry.timestamp;
       const daysInMs = 24 * 60 * 60 * 1000;

@@ -25,6 +25,7 @@ export class RespiratorySystem extends System {
 
   async init(): Promise<void> {
     this.subscribe('*', () => this.breathe());
+    this.subscribe('token:consumed', (data) => this.onTokenConsumed(data));
 
     setInterval(() => this.breathRhythm(), 1000);
     this.initialized = true;
@@ -46,6 +47,14 @@ export class RespiratorySystem extends System {
     this.bucket.tokens -= 1;
     this.isHoldingBreath = false;
     return true;
+  }
+
+  private onTokenConsumed(data: unknown): void {
+    const amount = (data as any)?.payload?.amount || 0;
+    if (amount > 0) {
+      this.bucket.tokens = Math.max(0, this.bucket.tokens - amount);
+      this.log(`Token consumed: ${amount}, remaining: ${Math.floor(this.bucket.tokens)}`);
+    }
   }
 
   async breatheDeep(amount: number): Promise<boolean> {

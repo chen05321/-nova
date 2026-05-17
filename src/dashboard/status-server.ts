@@ -147,11 +147,20 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         const onPerceived = () => {
           try { res.write(`event: thought:perceived\ndata: {}\n\n`); } catch {}
         };
+        const onLearning = (event: any) => {
+          try {
+            const p = event.payload || {};
+            const msg = p.error ? `❌ ${p.error}` : `📖 学习了: ${(p.learned || []).join(', ')}`;
+            res.write(`event: learning:cycle\ndata: ${JSON.stringify({ message: msg, error: !!p.error })}\n\n`);
+          } catch {}
+        };
         bus.on('thought:chunk', onChunk);
         bus.on('thought:perceived', onPerceived);
+        bus.on('learning:cycle', onLearning);
         req.on('close', () => {
           bus.removeListener('thought:chunk', onChunk);
           bus.removeListener('thought:perceived', onPerceived);
+          bus.removeListener('learning:cycle', onLearning);
         });
         return;
       }

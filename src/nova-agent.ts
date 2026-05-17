@@ -353,7 +353,7 @@ export class NovaAgent {
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
     this.foraging.start(60000);
-    setInterval(() => this.learning.learnCycle(), 300000);
+    this.scheduleLearnCycle();
 
     // Watchdog: save personality on config change, no auto-exit
     this.bus.on('system:reincarnation_ready', () => {
@@ -414,5 +414,21 @@ export class NovaAgent {
 
   getEventLog() {
     return this.bus.getEventLog();
+  }
+
+  private async scheduleLearnCycle(): Promise<void> {
+    const run = async () => {
+      try {
+        const results = await this.learning.learnCycle();
+        if (results.length > 0) {
+          this.bus.pulse('learning:cycle', { learned: results, count: results.length }, 'NovaAgent');
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.bus.pulse('learning:cycle', { error: msg }, 'NovaAgent');
+      }
+      setTimeout(run, 300000);
+    };
+    setTimeout(run, 300000);
   }
 }

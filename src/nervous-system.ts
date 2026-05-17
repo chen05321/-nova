@@ -340,7 +340,6 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
       this.bus.pulse('thought:complete', { response: fullResponse, model: modelName, usage: { totalTokens: Math.ceil(fullResponse.length * 1.3) } }, this.name);
       // Notify respiratory of estimated token consumption
       this.bus.pulse('token:consumed', { amount: Math.ceil(fullResponse.length * 1.3 + text.length * 1.3) }, this.name);
-      this.processingState = 'idle';
       this.log(`Response generated (${fullResponse.length} chars)`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -353,8 +352,9 @@ Record self-improvement ideas with: NOTE: [self-improvement] idea`;
       }, this.name);
 
       this.bus.pulse('system:error', { error: errMsg, source: 'NervousSystem.think' }, this.name);
+    } finally {
+      this.processingState = 'idle';
     }
-    this.processingState = 'idle';
   }
 
   private extractFacts(userMsg: string, response: string): void {

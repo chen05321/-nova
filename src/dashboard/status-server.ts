@@ -121,6 +121,9 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         req.on('end', () => {
           try {
             const { provider, baseUrl, model, apiKey } = JSON.parse(body);
+            // Normalize: strip trailing /v1, fix model names
+            const cleanUrl = String(baseUrl).replace(/\/v1\/?$/, '').replace(/\/$/, '');
+            const cleanModel = model === 'deepseek' ? 'deepseek-v4-flash' : model;
             const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
             let base: any = { llm: { fast: {}, reflective: {}, deep: {} } };
             try { if (fs.existsSync(configPath)) base = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
@@ -130,8 +133,8 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             for (const tier of ['fast', 'reflective', 'deep']) {
               if (!base.llm[tier]) base.llm[tier] = {};
               base.llm[tier].provider = provider;
-              base.llm[tier].baseUrl = baseUrl;
-              base.llm[tier].model = (tier === 'deep' && provider === 'deepseek' && (!model || model === 'deepseek-chat')) ? 'deepseek-reasoner' : (model || 'deepseek-chat');
+              base.llm[tier].baseUrl = cleanUrl;
+              base.llm[tier].model = (tier === 'deep' && provider === 'deepseek' && cleanModel === 'deepseek-v4-flash') ? 'deepseek-v4-pro' : (cleanModel || 'deepseek-v4-flash');
               if (finalKey) base.llm[tier].apiKey = finalKey;
             }
 

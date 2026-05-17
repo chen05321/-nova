@@ -11,6 +11,8 @@ export class ReproductiveSystem extends System {
     this.subscribe('urinary:toxic', () => this.triggerEvolution());
     this.subscribe('system:error', () => this.incrementReadiness(0.1));
     this.subscribe('action:failed', () => this.incrementReadiness(0.05));
+    this.subscribe('action:completed', () => this.incrementReadiness(0.02));
+    this.subscribe('learning:complete', () => this.incrementReadiness(0.15));
 
     this.initialized = true;
     this.log(`Reproductive system initialized (generation ${this.generation})`);

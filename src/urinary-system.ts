@@ -7,7 +7,7 @@ export class UrinarySystem extends System {
   private memoryCapacity = 100;
 
   async init(): Promise<void> {
-    setInterval(() => this.filterCycle(), 30000);
+    setInterval(() => this.filterCycle(), 15000);
     this.subscribe('memory:store', (data) => this.storeMemory(data));
 
     this.initialized = true;
@@ -17,7 +17,7 @@ export class UrinarySystem extends System {
   storeMemory(data: unknown): void {
     const entry = data as MemoryEntry;
     this.shortTermMemory.set(entry.id, entry);
-    this.toxinLevel = Math.min(1, this.toxinLevel + 0.02);
+    this.toxinLevel = Math.min(1, this.toxinLevel + 0.08);
 
     if (this.shortTermMemory.size >= this.memoryCapacity) {
       this.bus.pulse('urinary:overflow', {

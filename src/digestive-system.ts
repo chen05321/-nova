@@ -16,7 +16,9 @@ export class DigestiveSystem extends System {
   }
 
   private async ingest(data: unknown): Promise<void> {
-    const content = JSON.stringify(data);
+    // Extract actual content from event payload
+    const payload = (data as any)?.payload || data;
+    const content = typeof payload === 'object' ? JSON.stringify(payload) : String(payload);
     const id = `knowledge_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
     const fragment: KnowledgeFragment = {

@@ -122,6 +122,19 @@ export class NovaAgent {
       this.bus.consumeEnergy('NovaAgent', 3);
     });
 
+    // 7. Evolution takes effect
+    this.bus.on('evolution:mutation', (data) => {
+      const mut = (data as any)?.payload?.mutation;
+      if (mut) {
+        this.wisdomScore += 2;
+        this.memory.addFact(`进化: ${mut.type} on ${mut.target}`, 'evolution', 0.8);
+        // Random personality improvement
+        const keys = Object.keys(this.personality) as (keyof typeof this.personality)[];
+        const key = keys[Math.floor(Math.random() * keys.length)];
+        this.personality[key] = Math.min(0.95, this.personality[key] + 0.03);
+      }
+    });
+
     // ═══════════ CORE LIFECYCLE ═══════════
 
     // Action → growth check

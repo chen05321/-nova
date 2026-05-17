@@ -33,7 +33,7 @@ export class MusculoskeletalSystem extends System {
     this.log(`Evaluating action need from response`);
 
     // Check if the response explicitly requests a tool
-    const toolMatch = decision.match(/USE_TOOL:\s*(\w+)\s*(?:\nARGS:\s*(\{[^}]+\}))?/);
+    const toolMatch = decision.match(/(?:TOOL|USE_TOOL):\s*(\w+)\s*(?:\nARGS:\s*(\{[^}]+\}))?/);
     if (toolMatch) {
       const toolName = toolMatch[1];
       const tool = this.tools.get(toolName);

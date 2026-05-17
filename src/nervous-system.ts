@@ -12,36 +12,32 @@ export class NervousSystem extends System {
   private conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [];
   private maxHistoryTokens = 8000;
   private memory: MemoryStore;
+  private lastToolName = '';
+  private lastToolResult = '';
+  private systemPrompt = `You are Nova(超体), an AI with tools and memory.
 
-  constructor(memory?: MemoryStore) {
-    super();
-    this.memory = memory || new MemoryStore();
-  }
-  private systemPrompt = `You are Nova(超体), a self-evolving AI with built-in tools and memory.
+=== TOOLS ===
+shell  — run commands (ls, git, npm, etc.)
+read   — read files
+write  — write files
+ls     — list directory
+web    — fetch a URL
+grep   — search text in files
 
-Available tools you can use when needed:
-- shell: Execute terminal commands
-- read: Read files from the filesystem
-- write: Write content to files
-- ls: List directory contents
-- web: Fetch content from URLs
-- grep: Search for text patterns in files
-- puppeteer: Control Chrome browser (screenshots, clicks, forms)
-
-You have long-term memory that persists across conversations.
-Forage for knowledge when you need to learn something new.
-
-To use a tool, include in your response:
+=== HOW TO USE A TOOL ===
+Put this at the end of your response:
 TOOL: tool_name
-ARGS: {"key": "value"}
+ARGS: {"key":"value"}
 
-Example:
-TOOL: shell
-ARGS: {"command": "ls -la"}
+Example: TOOL: shell\nARGS: {"command":"ls -la"}
 
-Use tools freely but safely—dangerous operations (rm -rf /, dd, fork bombs) are blocked.
-When you identify a shortcoming in yourself, record it with: NOTE: [self-improvement] description
-Your self-assessments help improve your code.`;
+After the tool runs, you'll see its output and can continue the conversation.
+Dangerous commands (rm -rf /, dd, fork bombs) are blocked automatically.
+
+=== MEMORY ===
+You have persistent memory across conversations.
+Learning new things makes you grow stronger.
+Record self-improvement ideas with: NOTE: [self-improvement] idea`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -176,8 +172,9 @@ Your self-assessments help improve your code.`;
     };
 
     const modeNote = `\n[Energy: ${energyMode.toUpperCase()}] ${modeInstructions[energyMode]}`;
+    const toolNote = this.lastToolResult ? `\n[Last tool: ${this.lastToolName}]\n${this.lastToolResult.substring(0, 200)}` : '';
 
-    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Learned: ${learned.length} topics)${learnedBlock}${modeNote}`;
+    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Learned: ${learned.length} topics)${learnedBlock}${toolNote}${modeNote}`;
   }
 
   private async executeToolByName(name: string, args: Record<string, string>): Promise<string> {
@@ -235,6 +232,8 @@ Your self-assessments help improve your code.`;
         let args: Record<string, string> = {};
         try { args = JSON.parse(toolMatch[2]); } catch { args = { command: toolMatch[2] }; }
         const toolResult = await this.executeToolByName(toolName, args);
+        this.lastToolName = toolName;
+        this.lastToolResult = toolResult.substring(0, 1000);
         this.log(`Tool ${toolName} executed: ${toolResult.substring(0, 60)}`);
 
         // Feed result back for final response

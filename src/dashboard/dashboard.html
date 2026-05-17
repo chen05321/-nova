@@ -422,6 +422,19 @@ function renderDropHealth(){
  renderDropLogs(); // reuse logs for now
 }
 
+function renderDropSkills(){
+ var lang=localStorage.getItem('nova_lang')||'zh';
+ api('/api/status').then(function(d){
+  var skills=(d.learning&&d.learning.skills)||[];
+  var recent=(d.learning&&d.learning.recentLearnings)||[];
+  var h='<div style="font-size:11px;color:#555;padding:4px 10px">'+(lang==='zh'?'已学 '+d.learning.learned+' 项':'Learned '+d.learning.learned)+'</div>';
+  if(skills.length){skills.forEach(function(s){h+='<div class="di"><span>🎯 '+s.name+'</span><span style="font-size:10px;color:#555;margin-left:4px">'+s.description.substring(0,30)+'</span></div>'})}
+  else{h+='<div style="padding:6px 10px;font-size:11px;color:#555">'+(lang==='zh'?'暂无技能':'No skills')+'</div>'}
+  if(recent.length){h+='<div style="font-size:10px;color:#475569;padding:6px 10px;border-top:1px solid #1a1a1a;margin-top:4px">'+(lang==='zh'?'最近学习':'Recent')+'</div>';recent.slice(0,5).forEach(function(l){h+='<div style="padding:3px 10px;font-size:11px;color:#666">'+l+'</div>'})}
+  document.getElementById('drop').innerHTML=h;
+ }).catch(function(){});
+}
+
 function renderDropLogs(){
  api('/api/logs').then(function(events){
   var h=(events||[]).slice(-50).map(function(e){

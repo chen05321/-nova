@@ -311,13 +311,21 @@ console.log('Knowledge acquired and stored.');
   }
 
   getStats() {
+    const skillsList: { name: string; description: string }[] = [];
+    this.skillProgress.forEach((s) => {
+      if (s.learned) {
+        skillsList.push({ name: s.name, description: s.description });
+      }
+    });
+    const learned = this.memory.getFacts('learned');
     return {
-      learned: this.learningCount,
+      learned: learned.length,
+      skillsAcquired: skillsList.length,
       nodes: this.knowledgeGraph.size,
       connections: Array.from(this.knowledgeGraph.values())
         .reduce((s, n) => s + n.connections.length, 0),
-      recentLearnings: this.recentLearnings.slice(0, 10),
-      skills: this.getSkills()
+      recentLearnings: learned.slice(-10).map(f => f.content.substring(0, 80)),
+      skills: skillsList
     };
   }
 

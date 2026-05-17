@@ -91,7 +91,7 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
 
       // First LLM call
       await new Promise<void>((resolveStream) => {
-        const msgs = this.conversationHistory.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
         const bias = this.calculateHormoneBias();
         adapter.chatStream(msgs, (chunk, done) => {
           if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
@@ -130,7 +130,7 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
         fullResponse = '';
         await new Promise<void>((resolve, reject) => {
           const t = setTimeout(() => reject(new Error('timeout')), 20000);
-          const msgs = this.conversationHistory.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+          const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
           adapter.chatStream(msgs, (chunk, done) => {
             clearTimeout(t);
             if (chunk) { fullResponse += chunk; this.bus.pulse('thought:chunk', { chunk, full: fullResponse }, this.name); }
@@ -181,25 +181,8 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
   }
 
   private pruneContext(): void {
-    let iterations = 0;
-    while (iterations < 5) {
-      iterations++;
-      const totalLen = this.conversationHistory.reduce((s, m) => s + m.content.length, 0);
-      if (totalLen < this.maxHistoryTokens) return;
-
-      const keepLast = 3;
-      const first = this.conversationHistory[0];
-      const recent = this.conversationHistory.slice(-keepLast);
-      const middle = this.conversationHistory.slice(1, -keepLast);
-
-      if (middle.length <= 1) {
-        this.conversationHistory = [...recent];
-        return;
-      }
-
-      const summary = `[${middle.length} messages compressed: ${middle[0].content.substring(0, 40)}...${middle[middle.length-1].content.substring(0, 40)}]`;
-      this.conversationHistory = [first, { role: 'user', content: summary }, ...recent];
-    }
+    const totalLen = this.conversationHistory.reduce((s, m) => s + m.content.length, 0);
+    if (totalLen < this.maxHistoryTokens) return;
   }
 
   private buildContextPrompt(): string {

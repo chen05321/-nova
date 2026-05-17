@@ -17,6 +17,7 @@ export class NervousSystem extends System {
   private lastToolName = '';
   private lastToolResult = '';
   private processingState: ProcessingState = 'idle';
+  public isModelLocked = false;
 
   constructor(memory?: MemoryStore) {
     super();
@@ -346,6 +347,9 @@ shell/read/write/ls/web/grep — use them with TOOL: name\nARGS: {"key":"value"}
   private readonly modelSwitchCooldown = 15000; // 15s minimum between switches
 
   private regulateByHormone(signal: unknown): void {
+    // If user manually locked the model via dashboard, skip hormone override
+    if (this.isModelLocked) return;
+
     const { type, level } = signal as HormoneSignal;
 
     // Hysteresis: don't switch too frequently

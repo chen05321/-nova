@@ -100,12 +100,13 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
       // GET: read current config
       if (url.pathname === '/api/control/config' && req.method === 'GET') {
         const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
-        let cfg = { provider: 'deepseek', baseUrl: 'https://api.deepseek.com', hasKey: false };
+        let cfg = { provider: 'deepseek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', hasKey: false };
         try {
           if (fs.existsSync(configPath)) {
             const d = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
             cfg.provider = d.llm?.fast?.provider || 'deepseek';
             cfg.baseUrl = d.llm?.fast?.baseUrl || 'https://api.deepseek.com';
+            cfg.model = d.llm?.fast?.model || 'deepseek-chat';
             cfg.hasKey = !!(d.llm?.fast?.apiKey);
           }
         } catch {}
@@ -113,26 +114,24 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // POST: save config and trigger watchdog restart
+      // POST: save config with model field
       if (url.pathname === '/api/control/config/save' && req.method === 'POST') {
         let body = '';
         req.on('data', (c) => body += c);
         req.on('end', () => {
           try {
-            const { provider, baseUrl, apiKey } = JSON.parse(body);
+            const { provider, baseUrl, model, apiKey } = JSON.parse(body);
             const configPath = path.join(require('os').homedir(), '.nova', 'config.json');
             let base: any = { llm: { fast: {}, reflective: {}, deep: {} } };
             try { if (fs.existsSync(configPath)) base = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
 
             const finalKey = (apiKey === '••••••••••••••••••••••••' || !apiKey) ? base.llm?.fast?.apiKey : apiKey;
-            const modelMap: Record<string, string> = { deepseek: 'deepseek-chat', openai: 'gpt-4o-mini', anthropic: 'claude-sonnet-4-20250514' };
-            const model = modelMap[provider] || 'deepseek-chat';
 
             for (const tier of ['fast', 'reflective', 'deep']) {
               if (!base.llm[tier]) base.llm[tier] = {};
               base.llm[tier].provider = provider;
               base.llm[tier].baseUrl = baseUrl;
-              base.llm[tier].model = tier === 'deep' && provider === 'deepseek' ? 'deepseek-reasoner' : model;
+              base.llm[tier].model = (tier === 'deep' && provider === 'deepseek' && (!model || model === 'deepseek-chat')) ? 'deepseek-reasoner' : (model || 'deepseek-chat');
               if (finalKey) base.llm[tier].apiKey = finalKey;
             }
 
@@ -153,8 +152,12 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         req.on('end', () => {
           try {
             const { mode } = JSON.parse(body);
-            if (mode && ['fast', 'reflective', 'deep'].includes(mode)) {
+            if (mode === 'auto') {
+              (agent.nervous as any).isModelLocked = false;
+              json({ ok: true });
+            } else if (mode && ['fast', 'reflective', 'deep'].includes(mode)) {
               (agent.nervous as any).currentModel = mode;
+              (agent.nervous as any).isModelLocked = true;
               json({ ok: true });
             } else { json({ ok: false }, 400); }
           } catch { json({ ok: false }, 400); }

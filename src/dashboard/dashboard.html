@@ -42,11 +42,15 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <button id="btn-force-sleep" class="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">💤 休眠</button>
 <button id="btn-force-flush" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">🧼 排毒</button></div></div>
 
-<div class="panel-base p-4 rounded-2xl border-blue-500/30">
-<div class="flex justify-between items-center mb-2.5"><h2 class="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">🔌 配置</h2><button id="btn-opencode-import" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono transition-all cursor-pointer">📥 导入</button></div>
+<div class="panel-base p-4 rounded-2xl border-blue-500/20">
+<div class="flex justify-between items-center mb-2.5"><h2 class="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">🔌 模型接入</h2><button id="btn-opencode-import" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono transition-all cursor-pointer">📥 导入</button></div>
 <form id="config-llm-form" class="space-y-2 font-mono text-xs text-slate-300">
-<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">Provider</label><select id="cfg-provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="custom">Custom</option></select></div>
-<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">Base URL</label><input type="text" id="cfg-baseurl" placeholder="https://api.deepseek.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">服务商</label>
+<select id="cfg-provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
+<option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="qwen">阿里通义千问</option><option value="moonshot">月之暗面 Kimi</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="custom">自定义</option>
+</select></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">接口地址</label><input type="text" id="cfg-baseurl" placeholder="https://api.deepseek.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">模型名称</label><input type="text" id="cfg-model" placeholder="deepseek-chat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
 <div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">API Key</label><input type="password" id="cfg-apikey" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500"></div>
 <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-teal-500 text-white font-bold py-1.5 rounded-xl transition-all active:scale-95 text-center cursor-pointer uppercase tracking-wider text-[11px] mt-1 shadow-md">⚡ 保存</button></form></div>
 
@@ -96,12 +100,12 @@ document.getElementById('btn-force-sleep').onclick=function(){fetch('/api/contro
 document.getElementById('btn-force-flush').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'flush'})})};
 
 // ─── Config card logic ─────────────────
-var cfgp=document.getElementById('cfg-provider'),cfgb=document.getElementById('cfg-baseurl'),cfgk=document.getElementById('cfg-apikey'),cfgf=document.getElementById('config-llm-form'),boi=document.getElementById('btn-opencode-import');
-var pm={deepseek:'https://api.deepseek.com',openai:'https://api.openai.com/v1',anthropic:'https://api.anthropic.com',custom:'http://localhost:3000/v1'};
-if(cfgp)cfgp.addEventListener('change',function(e){if(pm[e.target.value])cfgb.value=pm[e.target.value]});
-async function loadCfg(){try{var r=await fetch('/api/control/config');var d=await r.json();if(d.success&&d.config){cfgp.value=d.config.provider||'deepseek';cfgb.value=d.config.baseUrl||'';cfgk.value=d.config.hasKey?'••••••••••••••••••••••••':''}}catch(e){}}
-if(cfgf)cfgf.addEventListener('submit',async function(e){e.preventDefault();try{var r=await fetch('/api/control/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:cfgp.value,baseUrl:cfgb.value,apiKey:cfgk.value})});var d=await r.json();if(d.success){bubble('system','⚡ 配置已保存，Nova 即将重启...');setTimeout(function(){window.location.reload()},3000)}else{alert('保存失败: '+(d.error||''))}}catch(err){alert('连接失败')}});
-if(boi)boi.onclick=async function(){try{var r=await fetch('/api/opencode-key');var d=await r.json();if(d.providers&&d.providers.length>0){var p=d.providers[0];cfgp.value=p.name.toLowerCase().includes('deepseek')?'deepseek':'openai';cfgb.value=p.baseUrl||'https://api.deepseek.com';cfgk.value=p.apiKey||'';bubble('system','📥 已从 OpenCode 导入凭证，请点击"烧录核心"保存')}else{alert('未找到 OpenCode 凭证')}}catch(e){alert('导入失败')}};
+var cfgp=document.getElementById('cfg-provider'),cfgb=document.getElementById('cfg-baseurl'),cfgm=document.getElementById('cfg-model'),cfgk=document.getElementById('cfg-apikey'),cfgf=document.getElementById('config-llm-form'),boi=document.getElementById('btn-opencode-import');
+var pp={deepseek:{url:'https://api.deepseek.com',model:'deepseek-chat'},gemini:{url:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-1.5-flash'},qwen:{url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen-plus'},moonshot:{url:'https://api.moonshot.cn/v1',model:'moonshot-v1-8k'},openai:{url:'https://api.openai.com/v1',model:'gpt-4o-mini'},anthropic:{url:'https://api.anthropic.com',model:'claude-sonnet-4-20250514'},custom:{url:'http://localhost:3000/v1',model:'custom-model'}};
+if(cfgp)cfgp.addEventListener('change',function(e){var c=pp[e.target.value];if(c){cfgb.value=c.url;if(cfgm)cfgm.value=c.model}});
+async function loadCfg(){try{var r=await fetch('/api/control/config');var d=await r.json();if(d.success&&d.config){cfgp.value=d.config.provider||'deepseek';cfgb.value=d.config.baseUrl||'';if(cfgm)cfgm.value=d.config.model||'';cfgk.value=d.config.hasKey?'••••••••••••••••••••••••':''}}catch(e){}}
+if(cfgf)cfgf.addEventListener('submit',async function(e){e.preventDefault();try{var r=await fetch('/api/control/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:cfgp.value,baseUrl:cfgb.value,model:cfgm?cfgm.value:'',apiKey:cfgk.value})});var d=await r.json();if(d.success){bubble('system','⚡ 配置已保存，Nova 即将重启...');setTimeout(function(){window.location.reload()},3000)}else{alert('保存失败')}}catch(err){alert('连接失败')}});
+if(boi)boi.onclick=async function(){try{var r=await fetch('/api/opencode-key');var d=await r.json();if(d.providers&&d.providers.length>0){var p=d.providers[0];cfgp.value=p.name.toLowerCase().includes('deepseek')?'deepseek':'openai';cfgb.value=p.baseUrl||'https://api.deepseek.com';if(cfgm)cfgm.value=p.model||'deepseek-chat';cfgk.value=p.apiKey||'';bubble('system','📥 已导入 OpenCode 凭证')}else{alert('未找到凭证')}}catch(e){alert('导入失败')}};
 
 function bubble(r,t){
  var u=r==='user',w=document.createElement('div');
@@ -152,6 +156,7 @@ bs.onmessage=function(e){
     document.getElementById('cognitive-load').innerText=s.load.toFixed(2);
     document.getElementById('current-model-name').innerText=s.metadata?.modelName||'?';
     document.getElementById('state-dot').className='w-2 h-2 rounded-full '+(s.status==='stressed'?'bg-rose-500 animate-ping':'bg-blue-500 animate-pulse');
+    var locked=s.metadata?.isModelLocked;if(locked!==undefined)mo.value=locked?s.metadata?.model:'auto';
    }
    if(s.name==='Endocrine'){
     var h=s.metadata?.hormones||{};

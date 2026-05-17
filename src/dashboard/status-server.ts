@@ -195,6 +195,18 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      // Chat history
+      if (url.pathname === '/api/chat/history') {
+        const memory = (agent as any).memory;
+        if (memory) {
+          const msgs = memory.getRecentMessages(20);
+          json(msgs.map((m: any) => ({ role: m.role, content: m.content })));
+          return;
+        }
+        json([]);
+        return;
+      }
+
       // Conversations
       if (url.pathname === '/api/convs') {
         const memory = (agent as any).memory;

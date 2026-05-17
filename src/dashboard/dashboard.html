@@ -244,6 +244,21 @@ function toggleChat(){
  document.getElementById('chatInput').focus();
 }
 
+// Load chat history on page load
+function loadChatHistory(){
+ fetch('/api/chat/history').then(function(r){return r.json()}).then(function(msgs){
+  if(!msgs||!msgs.length)return;
+  var c=document.getElementById('chatMsgs');
+  c.innerHTML='';
+  msgs.forEach(function(m){
+   var d=document.createElement('div');
+   d.style.cssText='padding:6px 8px;color:'+(m.role==='user'?'#ccc':'#e0e6f0')+';border-bottom:1px solid #1a1a1a';
+   d.innerHTML='<b>'+(m.role==='user'?'你':'Nova')+':</b> '+m.content;
+   c.appendChild(d);
+  });
+ }).catch(function(){});
+}
+
 function loadChatConvs(){
  api('/api/convs').then(function(c){
   var tabs=document.getElementById('chatConvTabs');
@@ -688,7 +703,7 @@ function initG(){var g=document.getElementById('sG');SN.forEach(function(n){var 
  d.innerHTML='<div style="font-size:13px">'+(SI[n]||'')+'</div><div class="nm" id="snm_'+n+'">'+snT(n)+'</div><div class="st2" id="ss_'+n+'">-</div><div class="ml"><div class="mf" id="sl_'+n+'" style="width:0%"></div></div>';g.appendChild(d)})}
 function initS(){var c=document.getElementById('sR');ST.forEach(function(s,i){if(i>0){var l=document.createElement('div');l.className='sln';l.id='ln_'+s;c.appendChild(l)}var d=document.createElement('div');d.className='sd';d.id='sd_'+s;d.textContent=s.slice(0,2);c.appendChild(d)})}
 
-initProvGroups();initG();initS();pt=setInterval(pl,1000);pl();
+loadChatHistory();initProvGroups();initG();initS();pt=setInterval(pl,1000);pl();
 var lang=localStorage.getItem('nova_lang');
 if(lang&&lang!=='zh'){document.querySelectorAll('.t').forEach(function(el){el.textContent=el.getAttribute('data-'+lang)||el.textContent})}
 if(lang==='en'){document.getElementById('langEn').className='btn act'}

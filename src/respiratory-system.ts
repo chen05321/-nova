@@ -34,14 +34,16 @@ export class RespiratorySystem extends System {
 
   async breathe(): Promise<boolean> {
     this.refillBucket();
+    const usage = 1 - (this.bucket.tokens / this.bucket.capacity);
 
-    if (this.bucket.tokens < 10) {
+    // Token 存量分层警报
+    if (this.bucket.tokens < 100) {
       this.isHoldingBreath = true;
-      this.bus.pulse('respiratory:limit', {
-        remaining: this.bucket.tokens,
-        status: 'BREATH_HOLD'
-      }, this.name);
+      this.bus.pulse('respiratory:limit', { remaining: this.bucket.tokens, usage, status: 'CRITICAL' }, this.name);
       return false;
+    }
+    if (usage > 0.8) {
+      this.bus.pulse('respiratory:limit', { remaining: this.bucket.tokens, usage, status: 'LOW' }, this.name);
     }
 
     this.bucket.tokens -= 1;

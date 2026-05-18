@@ -22,7 +22,12 @@ export class EndocrineSystem extends System {
   private tickInterval?: ReturnType<typeof setInterval>;
 
   async init(): Promise<void> {
-    this.subscribe('respiratory:limit', () => this.secrete('cortisol', 0.45));
+    this.subscribe('respiratory:limit', (data) => {
+      const status = (data as any)?.payload?.status || 'LOW';
+      const delta = status === 'CRITICAL' ? 0.6 : 0.35;
+      this.secrete('cortisol', delta);
+      this.secrete('adrenaline', delta * 0.5);
+    });
 
     this.subscribe('action:completed', () => {
       this.failStreak = 0;

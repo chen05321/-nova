@@ -24,12 +24,20 @@ export class ForagingSystem {
     { name: 'Wikipedia EN', url: (topic: string) => `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}` },
   ];
 
-  private readonly curiosityTopics = [
-    '人工智能', '机器学习', '深度学习', '自然语言处理', '计算机视觉',
-    'TypeScript', 'Node.js', '系统架构', '设计模式', '软件工程',
-    '心理学', '认知科学', '神经科学', '生物学', '进化论',
-    '哲学', '逻辑学', '数学', '物理学', '天文学'
-  ];
+  private readonly    curiosityTopics = [
+        // ═══════ 编程体系（权重最高）═══════
+        'TypeScript 类型系统', 'Node.js 事件循环', 'React 虚拟DOM', 'V8 引擎优化',
+        '微服务架构', '分布式一致性 Raft', '数据库索引 B+树', '缓存策略 Redis',
+        'CI/CD 流水线', '测试金字塔 TDD', '设计模式 观察者', 'Web安全 OWASP',
+        'gRPC 通信', '消息队列 Kafka', 'GraphQL 查询', 'WebAssembly',
+        '编译原理 AST', '设计模式 工厂', 'Rust 所有-权', 'Python 异步编程',
+        // ═══════ 自进化体系 ════════
+        'Agent 自改进 Reflexion', '元学习 Meta Learning', 'RAG 检索增强生成',
+        '知识图谱 Neo4j', '多Agent 协作', '自监控 诊断', '记忆层次 管理',
+        '工具编排 ReAct', '技能自动发现', 'Agent 框架设计',
+        // ═══════ 通用知识 ════════
+        '人工智能', '机器学习', '深度学习', '神经网络', '系统设计', '进化论', '认知科学'
+    ];
 
   constructor(personality: PersonalityVector, memory?: MemoryStore) {
     this.bus = CirculatorySystem.getInstance();

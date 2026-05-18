@@ -120,7 +120,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             stage: st.stage, uptime: st.uptime, wisdom: agent.Wisdom,
             energy, heart, model: modelName, role: '通用',
             waste: { total: waste.total },
-            biometrics: st.biometrics,
+            biometrics: st.biometrics.map((b: any) => ({ ...b, name: b.system?.replace('System', '') })),
             learning: agent.learning.getStats()
           });
           try { res.write(`data: ${data}\n\n`); } catch {}

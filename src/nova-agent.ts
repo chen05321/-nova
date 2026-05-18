@@ -393,10 +393,12 @@ export class NovaAgent {
     this.scheduleLearnCycle();
     this.memory.ensureVault();
 
-    // Watchdog: 监听自我进化信号 → 备份 → 编译 → 重启
+    // Watchdog: 监听自我进化信号 → 保存状态 → 编译 → 重启
     this.bus.on('system:reincarnation_ready', async () => {
-      console.log('\n[看门狗] 🔄 检测到自我进化信号，正在编译新代码...');
+      console.log('\n[看门狗] 🔄 检测到自我进化信号，正在保存状态...');
       this.savePersonality();
+      // 强制刷新内存到磁盘，确保重启后不丢失
+      this.memory.addFact('restart_signal:' + Date.now(), 'system', 1.0);
       try {
         const { execSync } = require('child_process');
         const result = execSync('npm run build 2>&1', { cwd: process.cwd(), timeout: 30000, encoding: 'utf-8' });

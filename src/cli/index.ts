@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 process.on('unhandledRejection', (err) => console.error('[安全阀] 未捕获的异常:', (err as any)?.message || err));
+process.on('uncaughtException', (err) => {
+  console.error('[安全阀] 致命错误:', err.message);
+  console.error(err.stack?.substring(0, 500));
+  console.log('[安全阀] 5 秒后自动重启...');
+  setTimeout(() => {
+    const { execSync } = require('child_process');
+    try { execSync('node ' + process.argv[1] + ' &', { cwd: process.cwd() }); } catch {}
+    process.exit(1);
+  }, 5000);
+});
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';

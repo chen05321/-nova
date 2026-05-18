@@ -229,8 +229,7 @@ clf.addEventListener('submit', async function(e){
     });
     var d = await r.json();
     if(d.success) {
-      bubble('system', '⚡核心脑桥烧录成功！看门狗已优雅自毁，Nova正在原地热引导复活...');
-      setTimeout(function(){ window.location.reload(); }, 3500);
+      bubble('system', '⚡核心脑桥配置已保存，正在热重启...');
     }
   } catch(err){}
 });

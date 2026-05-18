@@ -154,13 +154,20 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             res.write(`event: learning:cycle\ndata: ${JSON.stringify({ message: msg, error: !!p.error })}\n\n`);
           } catch {}
         };
+        const onHormoneShift = (event: any) => {
+          try {
+            res.write(`event: hormone:shift\ndata: ${JSON.stringify(event.payload)}\n\n`);
+          } catch {}
+        };
         bus.on('thought:chunk', onChunk);
         bus.on('thought:perceived', onPerceived);
         bus.on('learning:cycle', onLearning);
+        bus.on('hormone:shift', onHormoneShift);
         req.on('close', () => {
           bus.removeListener('thought:chunk', onChunk);
           bus.removeListener('thought:perceived', onPerceived);
           bus.removeListener('learning:cycle', onLearning);
+          bus.removeListener('hormone:shift', onHormoneShift);
         });
         return;
       }

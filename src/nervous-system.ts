@@ -271,6 +271,25 @@ ARGS: {"key":"value"}
     }
   }
 
+  // 技能效果映射 — 学完后影响提示词
+  private readonly skillEffects: Record<string, string> = {
+    '文件读取': '- 读取 JSON 时自动尝试 JSON.parse，YAML 可考虑用 js-yaml',
+    '文件写入': '- 写大文件时先用 Python 脚本写入，避免 write 截断',
+    '文件搜索': '- 优先用 grep -rn 搜索代码，比逐文件读取高效',
+    '网页抓取': '- 抓取后记得清洗 HTML 标签，返回纯文本',
+    '网络搜索': '- 搜索时优先用英文关键词，结果更准确',
+    'Shell基础': '- 长命令用 heredoc (cat << EOF)，短命令用 -c',
+    'Git操作': '- 提交用 git commit -m，推送前先 pull --rebase',
+    '浏览器导航': '- 先截图确认页面状态再操作',
+    '浏览器交互': '- 交互前先等页面加载完成',
+    '数据处理': '- JSON 用 JSON.parse/stringify，CSV 用 python3 -c "import csv"',
+    '表格处理': '- 大表格用 sqlite3 命令行查询比逐行解析快',
+    '代码分析': '- 优先读文件头和函数签名，再读具体实现',
+    '项目搭建': '- 先检查 package.json/requirements.txt 了解项目结构',
+    '自动化脚本': '- 重复操作写成脚本一次执行，别手动一步步来',
+    'MCP插件开发': '- MCP 工具通过 ToolRegistry 注册，命名规范 serverName_toolName',
+  };
+
   private buildContextPrompt(): string {
     const facts = this.memory.getFacts();
     const memories: string[] = [];
@@ -281,6 +300,16 @@ ARGS: {"key":"value"}
     for (const f of skills.slice(-3)) memories.push(`⚡ ${f.content}`);
     for (const f of facts.slice(0, 5)) {
       if (!learned.includes(f) && !skills.includes(f)) memories.push(`- ${f.content}`);
+    }
+
+    // 已掌握技能 → 注入能力增强提示
+    const learnedSkills = this.memory.getFacts('skill').map(f => f.content.replace('[技能] ', '').split(':')[0].trim());
+    const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean);
+    if (activeEffects.length > 0) {
+      memories.push('🧠 已掌握技能经验:');
+      for (const e of activeEffects) {
+        memories.push(`  ${e}`);
+      }
     }
 
     // 从 Obsidian 记忆库检索相关知识

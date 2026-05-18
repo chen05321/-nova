@@ -428,7 +428,7 @@ export class NovaAgent {
 
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
-    this.foraging.start(60000);
+    this.foraging.start(30000);
     this.scheduleLearnCycle();
     this.memory.ensureVault();
 
@@ -519,8 +519,8 @@ export class NovaAgent {
         const msg = err instanceof Error ? err.message : String(err);
         this.bus.pulse('learning:cycle', { error: msg }, 'NovaAgent');
       }
-      setTimeout(run, 300000);
+      setTimeout(run, 120000);
     };
-    setTimeout(run, 300000);
+    setTimeout(run, 120000);
   }
 }

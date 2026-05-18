@@ -17,8 +17,8 @@ export class ReproductiveSystem extends System {
     this.subscribe('action:failed', () => this.incrementReadiness(0.05));
     this.subscribe('action:completed', () => this.incrementReadiness(0.02));
     this.subscribe('learning:complete', () => this.incrementReadiness(0.15));
-    // 定时自检：每 10 分钟检查一次进化 readiness
-    setInterval(() => this.autoEvolveCheck(), 600000);
+    // 定时自检：快速进化模式，每 1 分钟检查一次
+    setInterval(() => this.autoEvolveCheck(), 60000);
 
     this.initialized = true;
     this.log(`Reproductive system initialized (generation ${this.generation})`);
@@ -26,8 +26,8 @@ export class ReproductiveSystem extends System {
 
   // 自动进化检查：readiness > 0.9 且 5 分钟内没进化过就自动触发
   private autoEvolveCheck(): void {
-    if (this.evolutionReadiness > 0.9) {
-      const recent = this.mutationHistory.filter(m => Date.now() - m.timestamp < 300000).length;
+    if (this.evolutionReadiness > 0.7) {
+      const recent = this.mutationHistory.filter(m => Date.now() - m.timestamp < 120000).length;
       if (recent === 0) {
         this.log('🧬 自动自检: readiness 充足，触发自我进化');
         this.triggerEvolution();

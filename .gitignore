@@ -1,7 +1,8 @@
-node_modules/
-dist/
-*.js.map
-*.d.ts.map
 .DS_Store
-*.log
 .env
+.nova/
+*.d.ts.map
+*.js.map
+*.log
+dist/
+node_modules/

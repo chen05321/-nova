@@ -85,70 +85,6 @@ export const webFetchTool: Tool = {
   }
 };
 
-const MCP_HOST = process.env.MCP_HOST || 'http://127.0.0.1:8899';
-
-async function mcpCall(endpoint: string, payload: Record<string, any>): Promise<ToolResult> {
-  try {
-    const response = await fetch(`${MCP_HOST}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!response.ok) {
-      return { success: false, output: '', error: `MCP HTTP ${response.status}` };
-    }
-    const data = await response.json() as any;
-    if (data.success === false) {
-      return { success: false, output: '', error: data.error || 'MCP call failed' };
-    }
-    return { success: true, output: JSON.stringify(data, null, 2) };
-  } catch (err: any) {
-    return { success: false, output: '', error: `MCP connection failed: ${err.message}` };
-  }
-}
-
-export const hermesSearchTool: Tool = {
-  name: 'hermes_search',
-  description: 'Search the web for information about a topic. Returns titles, URLs, and descriptions.',
-  async execute(args: Record<string, string>) {
-    return mcpCall('/search', { query: args.query || args.q || '', limit: parseInt(args.limit || '5') });
-  }
-};
-
-export const hermesExtractTool: Tool = {
-  name: 'hermes_extract',
-  description: 'Extract readable content from one or more URLs.',
-  async execute(args: Record<string, string>) {
-    const urls = args.urls ? JSON.parse(args.urls) : [args.url || ''];
-    return mcpCall('/extract', { urls });
-  }
-};
-
-export const hermesExecuteTool: Tool = {
-  name: 'hermes_execute',
-  description: 'Execute Python code in a sandbox and return the output.',
-  async execute(args: Record<string, string>) {
-    return mcpCall('/execute', { code: args.code || args.script || '' });
-  }
-};
-
-export const hermesTerminalTool: Tool = {
-  name: 'hermes_terminal',
-  description: 'Run a shell command and return its output.',
-  async execute(args: Record<string, string>) {
-    return mcpCall('/terminal', { command: args.command || args.cmd || '' });
-  }
-};
-
-export const hermesCodeReviewTool: Tool = {
-  name: 'hermes_code_review',
-  description: 'Review code for common issues: debug prints, bare excepts, hardcoded secrets, unresolved TODOs.',
-  async execute(args: Record<string, string>) {
-    return mcpCall('/code_review', { code: args.code || args.script || '' });
-  }
-};
-
 // 原生网络搜索工具（无需 API Key，用 DuckDuckGo Lite API）
 export const searchTool: Tool = {
   name: 'search',
@@ -212,11 +148,6 @@ ToolRegistry.register(readFileTool);
 ToolRegistry.register(webFetchTool);
 ToolRegistry.register(shellTool);
 ToolRegistry.register(searchTool);
-ToolRegistry.register(hermesSearchTool);
-ToolRegistry.register(hermesExtractTool);
-ToolRegistry.register(hermesExecuteTool);
-ToolRegistry.register(hermesTerminalTool);
-ToolRegistry.register(hermesCodeReviewTool);
 
 export function getBuiltinTools(): Tool[] {
   return ToolRegistry.getAll();

@@ -1,7 +1,6 @@
 import { CirculatorySystem } from '../event-bus';
 import { MemoryStore } from '../memory';
 import { ToolRegistry } from '../tools';
-import { execSync } from 'child_process';
 
 interface KnowledgeNode {
   id: string;
@@ -158,7 +157,7 @@ export class SelfLearningSystem {
 
     if (demo) {
       const demoPath = `/tmp/nova_learn_${Date.now()}.demo`;
-      try { execSync(`echo '${demo.replace(/'/g, "'\\''")}' > ${demoPath}`, { shell: '/bin/bash' }); } catch {}
+      try { require('fs').writeFileSync(demoPath, demo, 'utf-8'); } catch {}
       this.memory.addFact(`实践记录: ${topic} → ${demoPath}`, 'practice', 0.5);
     }
 

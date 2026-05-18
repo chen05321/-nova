@@ -189,15 +189,34 @@ ARGS: {"key":"value"}
 
       // 元认知反思层：审查工具调用结果，阻断幻觉与逻辑错误
       if (toolIterations > 0) {
-        const critiquePrompt = `Now review the response above. If it contains errors, hallucinations, or failed to achieve the goal, output [FAIL] followed by the reason. Otherwise output [PASS].`;
+        const critiquePrompt = `现在你作为超体的深层审查眼。请严格核对上方 Nova 吐出的最终回复与执行痕迹。
+如果它发生了逻辑死循环、路径反复报错、或者未能达成目标，请输出 [FAIL] 并在后面换行写明核心失败原因。
+如果完全严谨通过，请输出 [PASS]。`;
+
         try {
-          const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt + '\n\n' + fullResponse.substring(0, 800) }]);
+          const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt + '\n\n' + fullResponse.substring(0, 1000) }]);
+
           if (check.content.includes('[FAIL]')) {
-            this.log('元认知判定不通过，打回重组');
-            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.12, source: 'Metacognition' }, this.name);
-            return this.executePerceptionLoop(`[自我修正] 上一轮存在缺陷: ${check.content.substring(0, 200)}，请改正。`, isAgentObjective);
+            this.log('🚨 元认知判定不通过！正在物理注入错题经验，强行阻断死循环...');
+            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.15, source: 'Metacognition' }, this.name);
+
+            const failReason = check.content.replace('[FAIL]', '').trim();
+
+            this.memory.writeKnowledgeNote(
+              '知识',
+              '避坑自省_当前任务',
+              `# 行为自省缺陷集\n更新时间: ${new Date().toLocaleTimeString()}\n\n## 致命错误原因\n${failReason}\n\n## 修正指引\n在下一轮执行时，绝对禁止重复上述死路！`,
+              ['元认知反思', '硬核纠偏']
+            );
+
+            return this.executePerceptionLoop(
+              `[看门狗强制拦截：你刚才的方案炸了！错题本自省原因提示：${failReason}。请立刻转换思路，重新组织架构工具执行！]`,
+              isAgentObjective
+            );
           }
-        } catch {}
+        } catch (critiqueErr) {
+          this.log(`元认知审查通道故障: ${critiqueErr}`);
+        }
       }
 
       const cleanResponse = this.purgeConversationalFluff(fullResponse);

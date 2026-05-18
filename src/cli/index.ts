@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+process.on('unhandledRejection', (err) => console.error('[安全阀] 未捕获的异常:', (err as any)?.message || err));
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';

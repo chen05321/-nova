@@ -135,6 +135,24 @@ export class NovaAgent {
       }
     });
 
+    // ═══════════ LEARNING CASCADE ═══════════
+    // 学习 → 多系统级联反应
+    this.bus.on('learning:complete', (data) => {
+      const topic = (data as any)?.payload?.topic || '';
+      this.bus.consumeEnergy('NovaAgent', 5);          // 消化系统：学习耗能
+      this.bus.pulse('token:consumed', { amount: 100 }, 'NovaAgent'); // 呼吸系统：Token 消耗
+      this.bus.pulse('hormone:shift', { type: 'dopamine', level: 0.3, source: 'LearningCascade' }, 'NovaAgent'); // 内分泌：多巴胺奖励
+      if (topic.length > 10) {
+        this.bus.addWaste('stale', 1);                 // 泌尿系统：知识代谢产生废物
+      }
+    });
+
+    // 技能掌握 → 运动系统效率提升 + 呼吸系统容量扩展
+    this.bus.on('skill:acquired', () => {
+      this.bus.produceEnergy('NovaAgent', 5);           // 循环系统：技能带来能量
+      this.wisdomScore += 1;
+    });
+
     // ═══════════ CORE LIFECYCLE ═══════════
 
     // Action → growth check

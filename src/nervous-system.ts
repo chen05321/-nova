@@ -34,6 +34,7 @@ You have a personality shaped by hormones and experience. Be natural — sometim
 - read: Read a file (args: path/file)
 - shell: Execute shell commands (args: command/cmd)
 - web: Fetch a URL (args: url/path)
+- search: Search the web for current info (args: query/q)
 
 Format:
 TOOL: tool_name
@@ -147,6 +148,18 @@ ARGS: {"key":"value"}
         }
         break;
       }
+
+      // 🧠 规划阶段：用 Deep 模型拆解任务，生成执行计划
+      try {
+        this.bus.pulse('thought:chunk', { chunk: '\n🧠 规划中...' }, this.name);
+        const planPrompt = `将以下用户请求拆解为 1-3 个具体步骤，每步一行，格式: "步骤N: 做什么"。只输出步骤列表，不要多余的话。\n\n用户请求: ${text}`;
+        const planResult = await this.llmAdapters.deep.chat([{ role: 'user', content: planPrompt }]);
+        const planLines = planResult.content.split('\n').filter((l: string) => l.trim().match(/^步骤\d/));
+        if (planLines.length > 0) {
+          this.conversationHistory.push({ role: 'assistant', content: `[执行计划]\n${planLines.join('\n')}` });
+          this.bus.pulse('thought:chunk', { chunk: `\n📋 计划:\n${planLines.join('\n')}` }, this.name);
+        }
+      } catch {}
 
       this.processingState = 'acting';
       let toolIterations = 0;

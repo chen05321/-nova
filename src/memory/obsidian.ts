@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { semanticSearch, rebuildCache, noteChanged } from './vector';
 
 const VAULT_DIR = path.join(os.homedir(), '.nova-vault');
 
@@ -108,6 +109,35 @@ export function getAllNoteTitles(): string[] {
   }
   walk(VAULT_DIR);
   return titles;
+}
+
+// 语义搜索（向量 + 关键词混合）
+export async function hybridSearch(query: string, maxResults = 3): Promise<{ file: string; title: string; snippet: string }[]> {
+  const vectorResults = await semanticSearch(query, maxResults);
+  if (vectorResults.length > 0) {
+    return vectorResults.map(r => {
+      const filePath = vaultPath(r.file);
+      let snippet = '';
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const lines = content.split('\n');
+        snippet = lines.find(l => l.toLowerCase().includes(query.toLowerCase()) && !l.startsWith('#'))?.substring(0, 150)
+          || lines[1]?.substring(0, 150) || content.substring(0, 150);
+      } catch {}
+      return { file: r.file, title: r.title, snippet: snippet.replace(/[#*\[\]`]/g, '').trim() };
+    });
+  }
+  return searchNotes(query, maxResults);
+}
+
+// 重建向量缓存
+export async function rebuildVectorCache(): Promise<void> {
+  await rebuildCache();
+}
+
+// 笔记变更时更新向量
+export async function onNoteChanged(filename: string): Promise<void> {
+  await noteChanged(filename);
 }
 
 // 初始化仓库 — 如果空的就写个欢迎页

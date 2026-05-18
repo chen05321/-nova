@@ -149,6 +149,39 @@ export const hermesCodeReviewTool: Tool = {
   }
 };
 
+// 原生网络搜索工具（无需 API Key，用 DuckDuckGo Lite API）
+export const searchTool: Tool = {
+  name: 'search',
+  description: 'Search the web for current information. Returns up to 5 result snippets.',
+  async execute(args: Record<string, string>) {
+    const query = args.query || args.q;
+    if (!query) return { success: false, output: '', error: 'Missing search query.' };
+    try {
+      const resp = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      const html = await resp.text();
+      const results: string[] = [];
+      const linkRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+      let m;
+      let count = 0;
+      while ((m = linkRegex.exec(html)) !== null && count < 8) {
+        const url = m[1];
+        const text = m[2].trim();
+        if (url && text && !url.startsWith('/') && url.startsWith('http')) {
+          results.push(`${text}: ${url}`);
+          count++;
+        }
+      }
+      const output = results.length > 0 ? results.join('\n') : '未找到相关结果。';
+      return { success: true, output };
+    } catch (err: any) {
+      return { success: false, output: '', error: `搜索失败: ${err.message}` };
+    }
+  }
+};
+
 export const shellTool: Tool = {
   name: 'shell',
   description: 'Execute white-listed system shell commands safely.',
@@ -178,6 +211,7 @@ ToolRegistry.register(writeFileTool);
 ToolRegistry.register(readFileTool);
 ToolRegistry.register(webFetchTool);
 ToolRegistry.register(shellTool);
+ToolRegistry.register(searchTool);
 ToolRegistry.register(hermesSearchTool);
 ToolRegistry.register(hermesExtractTool);
 ToolRegistry.register(hermesExecuteTool);

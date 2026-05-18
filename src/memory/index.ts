@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { v4 as uuid } from 'uuid';
-import { writeNote, searchNotes, ensureVault, getAllNoteTitles, vaultPath } from './obsidian';
+import { writeNote, searchNotes, ensureVault, getAllNoteTitles, vaultPath, hybridSearch, rebuildVectorCache } from './obsidian';
 
 interface Message {
   id: string;
@@ -192,9 +192,20 @@ export class MemoryStore {
     writeNote(category, title, tags, content, links);
   }
 
-  /** 从 Obsidian 仓库搜索相关知识 */
+  /** 从 Obsidian 仓库搜索相关知识（关键词） */
   searchVault(query: string, maxResults = 5): { title: string; snippet: string }[] {
     return searchNotes(query, maxResults).map(r => ({ title: r.title, snippet: r.snippet }));
+  }
+
+  /** 从 Obsidian 仓库语义搜索（向量） */
+  async semanticSearchVault(query: string, maxResults = 3): Promise<{ title: string; snippet: string }[]> {
+    const r = await hybridSearch(query, maxResults);
+    return r.map(r => ({ title: r.title, snippet: r.snippet }));
+  }
+
+  /** 重建向量索引 */
+  async rebuildVectors(): Promise<void> {
+    await rebuildVectorCache();
   }
 
   /** 获取所有笔记标题（图谱关联用） */

@@ -359,8 +359,17 @@ ARGS: {"key":"value"}
     if (!tool) return `Tool "${name}" not found in current musculoskeletal synapse registry.`;
     try {
       const result = await tool.execute(args);
-      return result.success ? result.output : `Error: ${result.error}`;
-    } catch (e) { return `Failed to dispatch muscle sequence: ${e}`; }
+      if (result.success) {
+        this.bus.pulse('action:completed', { tool: name, success: true }, this.name);
+        return result.output;
+      } else {
+        this.bus.pulse('action:failed', { tool: name, error: result.error }, this.name);
+        return `Error: ${result.error}`;
+      }
+    } catch (e) {
+      this.bus.pulse('action:failed', { tool: name, error: String(e) }, this.name);
+      return `Failed to dispatch muscle sequence: ${e}`;
+    }
   }
 
   private extractFacts(userMsg: string, response: string): void {

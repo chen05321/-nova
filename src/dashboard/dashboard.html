@@ -86,6 +86,7 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <div class="flex items-center gap-2">
   <button id="btn-toggle-left" type="button" class="bg-slate-800 hover:bg-slate-700 text-teal-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">⚙ 舱壁面板</button>
   <button id="btn-toggle-sidebar" type="button" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">📁 历史会话</button>
+  <button id="btn-new-session" type="button" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">➕ 新会话</button>
   <button id="btn-toggle-right" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">📊 任务肢体</button>
   <div class="flex items-center gap-2 ml-2"><span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" id="state-dot"></span><span>负载: <span id="cognitive-load" class="text-slate-200">0.0</span></span></div>
 </div>
@@ -94,9 +95,7 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <div class="bg-slate-950/80 px-4 py-1.5 border-b border-black text-[11px] font-mono text-cyan-400/80 truncate shrink-0">🧠 <span id="thought-chunk-live" class="text-slate-300 italic">流式思维感知就绪...</span></div>
 
 <div class="flex flex-1 overflow-hidden relative min-w-0">
-  <div id="sessions-sidebar" class="w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0">
-    <button id="btn-new-session" type="button" class="w-full bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-1.5 rounded-xl transition-all active:scale-95 text-center text-[11px] cursor-pointer">＋ 新建会话</button>
-  </div>
+  <div id="sessions-sidebar" class="w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0"></div>
   
   <div id="chat-viewport" class="flex-1 p-5 overflow-y-auto space-y-4 text-sm leading-relaxed min-w-0">
     <div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="bg-slate-900/60 border border-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-slate-300 bubble-text">控制舱空间锁定完毕。弹性视窗防横向爆炸协议已生效。</div></div>

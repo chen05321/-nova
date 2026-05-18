@@ -91,13 +91,13 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         json({
           stage: st.stage, uptime: st.uptime, actions: st.actionCount,
           energy, heart, model: modelName, role: roleName,
+          learning: agent.learning.getStats(),
           waste: { total: waste.total, h: waste.hallucinationWaste, e: waste.errorWaste, s: waste.staleKnowledge },
           systems: st.biometrics.map(b => ({ name: b.system.replace('System', ''), status: b.status, load: Math.round(b.load * 100) })),
           upgrades: agent.Upgrades.map((u: any) => u.name),
           availableUpgrades: agent.getAvailableUpgrades().map((u: any) => ({ id: u.id, name: u.name, description: u.description, cost: u.cost })),
           wisdom: agent.Wisdom, personality: agent.Personality,
           foraging: agent.foraging.getStats(),
-          learning: agent.learning.getStats()
         });
         return;
       }
@@ -211,6 +211,59 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
             const ok = agent.applyUpgrade(id);
             json({ ok });
           } catch { json({ ok: false }, 400); }
+        });
+        return;
+      }
+
+      // ── Debug: manually trigger learn cycle ──
+      if (url.pathname === '/api/learn' && (req.method === 'POST' || req.method === 'GET')) {
+        agent.learning.learnCycle().then(results => {
+          json({ ok: true, results });
+        }).catch(err => {
+          json({ ok: false, error: err.message }, 500);
+        });
+        return;
+      }
+
+      // ── Chat: proxy to Hermes agent (with tools!) ──
+      if (url.pathname === '/api/chat' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', async () => {
+          try {
+            const { text } = JSON.parse(body);
+            if (!text) { json({ ok: false }, 400); return; }
+
+            // Call Hermes dashboard chat bridge (port 9119) — it now returns SSE directly
+            const http = require('http');
+            const bridgePayload = JSON.stringify({ message: text });
+
+            const bridgeReq = http.request({
+              hostname: '127.0.0.1',
+              port: 9119,
+              path: '/api/chat/bridge',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(bridgePayload)
+              }
+            }, (bridgeRes: any) => {
+              // Pipe Hermes SSE stream straight through to the client
+              res.writeHead(bridgeRes.statusCode || 200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+              });
+              bridgeRes.pipe(res);
+              bridgeRes.on('error', () => { if (!res.writableEnded) res.end(); });
+            });
+            bridgeReq.on('error', (err: any) => {
+              json({ error: `Cannot reach Hermes dashboard (port 9119): ${err.message}. Is Hermes running?` }, 502);
+            });
+            bridgeReq.write(bridgePayload);
+            bridgeReq.end();
+          } catch (err: any) { json({ error: err.message }, 400); }
         });
         return;
       }

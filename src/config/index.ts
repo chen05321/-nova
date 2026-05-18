@@ -127,7 +127,17 @@ export function loadConfig(configPath?: string): NovaConfig {
     }
   } catch {}
 
-  if (process.env.DEEPSEEK_API_KEY) {
+  // OpenCode proxy 优先（省钱）
+  const opencodeKey = process.env.OPENCODE_GO_API_KEY || process.env.OPENCODE_API_KEY;
+  if (opencodeKey) {
+    merged.llm.fast.apiKey = opencodeKey;
+    merged.llm.reflective.apiKey = opencodeKey;
+    merged.llm.deep.apiKey = opencodeKey;
+    merged.llm.fast.baseUrl = 'https://opencode.ai/zen/go';
+    merged.llm.reflective.baseUrl = 'https://opencode.ai/zen/go';
+    merged.llm.deep.baseUrl = 'https://opencode.ai/zen/go';
+    console.log('  ✓ Using OpenCode proxy');
+  } else if (process.env.DEEPSEEK_API_KEY) {
     merged.llm.fast.apiKey = process.env.DEEPSEEK_API_KEY;
     merged.llm.reflective.apiKey = process.env.DEEPSEEK_API_KEY;
     merged.llm.deep.apiKey = process.env.DEEPSEEK_API_KEY;

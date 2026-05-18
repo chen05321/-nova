@@ -59,7 +59,7 @@ export class SelfLearningSystem {
   }
 
   private async callHermesMcp(toolName: string, args: Record<string, string>): Promise<string | null> {
-    const fullToolName = `hermes_${toolName}`;
+    const fullToolName = toolName.startsWith('hermes_') ? toolName : `hermes_${toolName}`;
     const tool = ToolRegistry.find(fullToolName);
     if (!tool) return null;
     try {
@@ -201,7 +201,7 @@ export class SelfLearningSystem {
   }
 
   private async practice(topic: string): Promise<string | null> {
-    const mcpCode = await this.callHermesMcp('hermes_execute', { code: `// Study target: ${topic}\nconsole.log("Hermes Sandbox verified successfully.");`, language: 'typescript' });
+    const mcpCode = await this.callHermesMcp('hermes_execute', { code: `# Study target: ${topic}\nprint("Hermes Sandbox verified successfully.")`, limit: '1' });
     if (mcpCode) {
       return mcpCode;
     }

@@ -116,26 +116,37 @@ ARGS: {"key":"value"}
       const contextPrompt = this.buildContextPrompt();
       let fullResponse = '';
 
-      await new Promise<void>((resolveStream) => {
-        const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-        const bias = this.calculateHormoneBias();
-        adapter.chatStream(msgs, (chunk, done, isReasoning) => {
-          if (chunk) {
-            if (isReasoning) {
-              this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
-            } else {
-              fullResponse += chunk;
-              this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+      // 网络中断自动重试（最多 3 次）
+      for (let retries = 0; retries < 3; retries++) {
+        let streamFailed = false;
+        fullResponse = '';
+        await new Promise<void>((resolveStream) => {
+          const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+          const bias = this.calculateHormoneBias();
+          adapter.chatStream(msgs, (chunk, done, isReasoning) => {
+            if (chunk) {
+              if (isReasoning) {
+                this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
+              } else {
+                fullResponse += chunk;
+                this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+              }
             }
-          }
-          if (done) resolveStream();
-        }, contextPrompt, bias)
-        .catch((err) => {
-          this.log(`意识链路中断: ${err.message}`);
-          this.bus.pulse('thought:chunk', { chunk: `\n❌ [脑桥阻断] 联通失败: ${err.message}` }, this.name);
-          resolveStream();
+            if (done) resolveStream();
+          }, contextPrompt, bias)
+          .catch((err) => {
+            streamFailed = true;
+            this.log(`意识链路中断 (重试 ${retries + 1}/3): ${err.message}`);
+            this.bus.pulse('thought:chunk', { chunk: `\n🔄 网络中断，自动重试(${retries + 1}/3)...` }, this.name);
+            resolveStream();
+          });
         });
-      });
+        if (streamFailed) {
+          fullResponse = ''; // 丢弃半截内容
+          continue;
+        }
+        break;
+      }
 
       this.processingState = 'acting';
       let toolIterations = 0;
@@ -171,25 +182,34 @@ ARGS: {"key":"value"}
         this.conversationHistory.push({ role: 'assistant', content: cleanInterResponse });
         this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
 
-        fullResponse = '';
-        await new Promise<void>((resolve, reject) => {
-          const t = setTimeout(() => reject(new Error('timeout')), 20000);
-          const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-          adapter.chatStream(msgs, (chunk, done, isReasoning) => {
-            clearTimeout(t);
-            if (chunk) {
-              if (isReasoning) {
-                this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
-              } else {
-                fullResponse += chunk;
-                this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+        for (let retries = 0; retries < 3; retries++) {
+          let streamFailed = false;
+          fullResponse = '';
+          await new Promise<void>((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error('timeout')), 20000);
+            const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+            adapter.chatStream(msgs, (chunk, done, isReasoning) => {
+              clearTimeout(t);
+              if (chunk) {
+                if (isReasoning) {
+                  this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
+                } else {
+                  fullResponse += chunk;
+                  this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
+                }
               }
-            }
-            if (done) resolve();
-          }, contextPrompt, this.calculateHormoneBias());
-        }).catch((err) => {
-          this.bus.pulse('thought:chunk', { chunk: `\n❌ [工具流中断]: ${err.message}` }, this.name);
-        });
+              if (done) resolve();
+            }, contextPrompt, this.calculateHormoneBias());
+          }).catch((err) => {
+            streamFailed = true;
+            this.bus.pulse('thought:chunk', { chunk: `\n🔄 工具流中断，自动重试(${retries + 1}/3)...` }, this.name);
+          });
+          if (streamFailed) {
+            fullResponse = ''; // 丢弃半截内容
+            continue;
+          }
+          break;
+        }
       }
 
       // 元认知反思层：审查工具调用结果，阻断幻觉与逻辑错误

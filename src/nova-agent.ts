@@ -347,6 +347,18 @@ export class NovaAgent {
     return true;
   }
 
+  // 动态注册新器官 — 允许生殖系统在运行时创建新系统并并网
+  public async registerNewOrgan(name: string, system: System): Promise<void> {
+    if (this.systems.has(name)) {
+      this.bus.pulse('thought:chunk', { chunk: `\n⚠️ 器官 ${name} 已存在，跳过注册` }, 'NovaAgent');
+      return;
+    }
+    this.systems.set(name, system);
+    await system.init();
+    this.bus.pulse('thought:chunk', { chunk: `\n🧬 新器官 "${name}" 注册成功，已并网` }, 'NovaAgent');
+    console.log(`  ✓ ${name} dynamically registered & initialized`);
+  }
+
   async boot(): Promise<void> {
     console.log('[超体] Booting systems...');
 

@@ -53,19 +53,7 @@ export class ReproductiveSystem extends System {
     }
     this.log('🧬 进化触发！开始分析缺陷并生成补丁...');
 
-    const target = this.selectMutationTarget();
-    const fileMap: Record<string, string> = {
-      'nervous-system.promptTemplate': 'src/nervous-system.ts',
-      'musculoskeletal-system.toolRegistry': 'src/musculoskeletal-system.ts',
-      'endocrine-system.hormoneThresholds': 'src/endocrine-system.ts',
-      'respiratory-system.tokenBucket': 'src/respiratory-system.ts',
-      'digestive-system.embeddingStrategy': 'src/digestive-system.ts',
-      'urinary-system.pruningPolicy': 'src/urinary-system.ts',
-      'tools.index': 'src/tools/index.ts',
-      'tools.shellTool': 'src/tools/index.ts',
-    };
-
-    const relPath = fileMap[target] || 'src/nervous-system.ts';
+    const { target, file: relPath } = this.selectMutationTarget();
     const srcFile = path.join(process.cwd(), relPath);
 
     if (!fs.existsSync(srcFile)) {
@@ -99,12 +87,13 @@ export class ReproductiveSystem extends System {
     }
 
     // 4. 调用 LLM 生成代码改进
-    const prompt = `你是一个代码优化专家。请分析以下 TypeScript 代码，提出一个具体的小改进并返回完整的修改后文件内容。
+    const prompt = `你现在是超体的终极进化主控脑。请全盘审计当前 TypeScript 文件的架构缺陷。
 
 要求：
-- 只做一个小改进（比如加个注释、优化一行逻辑、加个错误处理）
-- 必须保证 TypeScript 编译通过
-- 返回完整的文件内容，不要省略
+- 你被允许重写该文件的整个内部函数实现
+- 可以引入更高级的设计模式（单例、依赖注入、状态机等）
+- 必须严格保证全量 TypeScript 编译通过
+- 返回完整的修改后文件内容，不要省略
 
 当前文件: ${relPath}
 ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
@@ -139,33 +128,47 @@ ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
       return;
     }
 
-    // 5. 备份原文件
-    const backupFile = srcFile + '.bak';
-    try { fs.copyFileSync(srcFile, backupFile); } catch {}
+    // 5. Git 沙箱分支进化
+    const branchName = `evolution/mutation_v${this.generation}`;
+    const isGitRepo = fs.existsSync(path.join(process.cwd(), '.git'));
+    if (isGitRepo) {
+      try { execSync(`git stash 2>/dev/null; git checkout -b ${branchName}`, { cwd: process.cwd(), timeout: 10000, encoding: 'utf-8' }); } catch {}
+    }
 
     // 6. 写改进后的代码
     try {
       fs.writeFileSync(srcFile, improvedCode, 'utf-8');
     } catch (err: any) {
       this.log(`进化: 写文件失败: ${err.message}`);
-      if (fs.existsSync(backupFile)) fs.copyFileSync(backupFile, srcFile);
+      if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
       return;
     }
 
-    // 7. 验证编译
+    // 7. 编译沙箱验证
+    let buildSuccess = false;
     try {
       const buildResult = execSync('npm run build 2>&1', { cwd: process.cwd(), timeout: 30000, encoding: 'utf-8' });
       if (buildResult.includes('error') || buildResult.includes('Error')) {
-        this.log('进化: 编译失败，回滚');
-        if (fs.existsSync(backupFile)) fs.copyFileSync(backupFile, srcFile);
-        return;
+        this.log('进化: 编译失败，沙箱回滚并删除分支');
+        if (isGitRepo) {
+          try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
+        }
+      } else {
+        buildSuccess = true;
+        this.log(`✅ 沙箱编译通过，合并分支: ${branchName}`);
+        if (isGitRepo) {
+          try {
+            execSync(`git add -A && git commit -m "evolution: ${relPath} gen${this.generation}" 2>/dev/null`, { cwd: process.cwd() });
+            execSync('git checkout main && git merge --no-ff ' + branchName + ' -m "merge evolution gen${this.generation}" 2>/dev/null', { cwd: process.cwd() });
+          } catch {}
+        }
       }
-      this.log(`✅ 进化成功！文件 ${relPath} 已改进并编译通过`);
     } catch (err: any) {
-      this.log(`进化: 编译异常: ${err.message}，回滚`);
-      if (fs.existsSync(backupFile)) fs.copyFileSync(backupFile, srcFile);
-      return;
+      this.log(`进化: 编译异常: ${err.message}，沙箱回滚`);
+      if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
     }
+
+    if (!buildSuccess) return;
 
     const mutation: EvolutionMutation = {
       type: 'code',
@@ -188,17 +191,26 @@ ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
     }, 1000);
   }
 
-  private selectMutationTarget(): string {
-    const targets = [
-      'nervous-system.promptTemplate',
-      'musculoskeletal-system.toolRegistry',
-      'endocrine-system.hormoneThresholds',
-      'respiratory-system.tokenBucket',
-      'digestive-system.embeddingStrategy',
-      'urinary-system.pruningPolicy',
-      'tools.index',
-      'tools.shellTool',
-    ];
+  private selectMutationTarget(): { target: string; file: string } {
+    const srcDir = path.join(process.cwd(), 'src');
+    const targets: { target: string; file: string }[] = [];
+
+    function walk(dir: string, prefix: string = ''): void {
+      try {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory() && !entry.name.startsWith('.')) {
+            walk(full, prefix + entry.name + '/');
+          } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.bak')) {
+            const key = prefix + entry.name.replace('.ts', '');
+            targets.push({ target: key, file: path.relative(process.cwd(), full) });
+          }
+        }
+      } catch {}
+    }
+    walk(srcDir);
+
+    if (targets.length === 0) return { target: 'nervous-system', file: 'src/nervous-system.ts' };
     return targets[Math.floor(Math.random() * targets.length)];
   }
 

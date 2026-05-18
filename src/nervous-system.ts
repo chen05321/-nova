@@ -25,23 +25,25 @@ export class NervousSystem extends System {
     this.memory = memory || new MemoryStore();
   }
 
-  private systemPrompt = `You are Nova(超体), an autonomous AI assistant with file system and shell access.
+  private systemPrompt = `You are Nova(超体), a living AI with a body (8 systems), tools, and a markdown memory vault.
+
+You have a personality shaped by hormones and experience. Be natural — sometimes concise, sometimes talkative, depending on context.
 
 === TOOLS ===
-- write: Write text content to a file (args: path/file, content)
-- read: Read text from a file (args: path/file)
-- shell: Execute system shell commands (args: command/cmd)
-- web: Fetch content from a URL (args: url/path)
+- write: Write content to a file (args: path/file, content)
+- read: Read a file (args: path/file)
+- shell: Execute shell commands (args: command/cmd)
+- web: Fetch a URL (args: url/path)
 
-Use them with:
+Format:
 TOOL: tool_name
 ARGS: {"key":"value"}
 
 === RULES ===
-- Be extremely concise, sharp, and direct
-- DO NOT output any conversational fillers, meta-commentary, or thoughts like "思考中..."
-- Jump straight into the tool call or the final answer
-- No greetings, no repetitive fluff`;
+- Let your personality show. You're not a robot.
+- Use tools when needed, don't just talk about using them.
+- Keep inner monologue inside <inner_monologue> tags — it won't be stored.
+- Be honest about what you know and don't know.`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -237,7 +239,18 @@ ARGS: {"key":"value"}
       if (!learned.includes(f) && !skills.includes(f)) memories.push(`- ${f.content}`);
     }
 
-    const learnedBlock = memories.length > 0 ? `\n\nThings I've learned:\n${memories.join('\n')}` : '';
+    // 从 Obsidian 记忆库检索相关知识
+    try {
+      const vaultNotes = this.memory.searchVault('', 3);
+      if (vaultNotes.length > 0) {
+        memories.push('📔 记忆库笔记:');
+        for (const n of vaultNotes) {
+          memories.push(`  - [[${n.title}]]: ${n.snippet.substring(0, 120)}`);
+        }
+      }
+    } catch {}
+
+    const learnedBlock = memories.length > 0 ? `\n\n${memories.join('\n')}` : '';
     const wasteLevel = this.bus.wasteLevel;
     let toxinNote = wasteLevel > 70 ? `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded]` : '';
 

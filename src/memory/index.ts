@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { v4 as uuid } from 'uuid';
+import { writeNote, searchNotes, ensureVault, getAllNoteTitles, vaultPath } from './obsidian';
 
 interface Message {
   id: string;
@@ -182,5 +183,32 @@ export class MemoryStore {
 
   getCurrentConversationId(): string {
     return this.currentConvId;
+  }
+
+  // ——— Obsidian 记忆库集成 ———
+
+  /** 把知识/技能/用户信息写入 Obsidian 笔记 */
+  writeKnowledgeNote(category: '技能' | '知识' | '用户' | '项目', title: string, content: string, tags: string[], links: string[] = []): void {
+    writeNote(category, title, tags, content, links);
+  }
+
+  /** 从 Obsidian 仓库搜索相关知识 */
+  searchVault(query: string, maxResults = 5): { title: string; snippet: string }[] {
+    return searchNotes(query, maxResults).map(r => ({ title: r.title, snippet: r.snippet }));
+  }
+
+  /** 获取所有笔记标题（图谱关联用） */
+  getAllNoteTitles(): string[] {
+    return getAllNoteTitles();
+  }
+
+  /** 确保仓库存在 */
+  ensureVault(): void {
+    ensureVault();
+  }
+
+  /** 获取 vault 根路径 */
+  getVaultPath(): string {
+    return vaultPath();
   }
 }

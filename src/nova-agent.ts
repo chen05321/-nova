@@ -354,6 +354,7 @@ export class NovaAgent {
     this.bus.startHeart();
     this.foraging.start(60000);
     this.scheduleLearnCycle();
+    this.memory.ensureVault();
 
     // Watchdog: save personality on config change, no auto-exit
     this.bus.on('system:reincarnation_ready', () => {

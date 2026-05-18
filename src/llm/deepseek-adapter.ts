@@ -62,6 +62,7 @@ export class DeepSeekAdapter extends LLMAdapter {
     systemPrompt?: string,
     dynamicOptions?: DynamicOptions
   ): Promise<void> {
+    try {
     const msgs = this.buildMessages(messages, systemPrompt);
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
@@ -138,5 +139,9 @@ export class DeepSeekAdapter extends LLMAdapter {
     }
 
     onChunk('', true);
+    } catch (err: any) {
+      const msg = err?.cause?.code === 'UND_ERR_SOCKET' ? '网络连接中断' : (err.message || String(err));
+      onChunk(`[连接错误] ${msg}`, true);
+    }
   }
 }

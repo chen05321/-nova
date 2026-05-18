@@ -356,10 +356,23 @@ export class NovaAgent {
     this.scheduleLearnCycle();
     this.memory.ensureVault();
 
-    // Watchdog: save personality on config change, no auto-exit
-    this.bus.on('system:reincarnation_ready', () => {
-      console.log('\n[看门狗] 配置已更新，请在终端重启 Nova 以加载新配置。');
+    // Watchdog: 监听自我进化信号 → 备份 → 编译 → 重启
+    this.bus.on('system:reincarnation_ready', async () => {
+      console.log('\n[看门狗] 🔄 检测到自我进化信号，正在编译新代码...');
       this.savePersonality();
+      try {
+        const { execSync } = require('child_process');
+        const result = execSync('npm run build 2>&1', { cwd: process.cwd(), timeout: 30000, encoding: 'utf-8' });
+        console.log(`[看门狗] ✅ 编译成功:\n${result.substring(0, 500)}`);
+        this.bus.pulse('thought:chunk', { chunk: '\n🧬 自我进化完成，正在热重启...' }, 'NovaAgent');
+        setTimeout(() => {
+          console.log('[看门狗] ♻ 热重启中...');
+          process.exit(0);
+        }, 2000);
+      } catch (err: any) {
+        console.error(`[看门狗] ❌ 编译失败: ${err.message}`);
+        this.bus.pulse('thought:chunk', { chunk: `\n❌ 进化编译失败: ${err.message}` }, 'NovaAgent');
+      }
     });
 
     // Sleep monitor: sleep when energy too low, wake when recovered

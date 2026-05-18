@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { System } from './system';
 import { Biometrics, EvolutionMutation } from './types';
 
@@ -29,38 +31,51 @@ export class ReproductiveSystem extends System {
   }
 
   private async triggerEvolution(): Promise<void> {
-    // Evolution costs significant energy
-    if (!this.consumeEnergy(20)) {
-      this.log('Not enough energy to evolve');
+    if (!this.consumeEnergy(30)) {
+      this.log('能量不足，无法进化');
       return;
     }
-    this.log('Evolution trigger received (consumed 20 energy)');
+    this.log('🧬 进化触发！开始分析缺陷并生成补丁...');
+
+    const target = this.selectMutationTarget();
+    const fileMap: Record<string, string> = {
+      'nervous-system.promptTemplate': 'src/nervous-system.ts',
+      'musculoskeletal-system.toolRegistry': 'src/musculoskeletal-system.ts',
+      'endocrine-system.hormoneThresholds': 'src/endocrine-system.ts',
+      'respiratory-system.tokenBucket': 'src/respiratory-system.ts',
+      'digestive-system.embeddingStrategy': 'src/digestive-system.ts',
+      'urinary-system.pruningPolicy': 'src/urinary-system.ts',
+      'tools.index': 'src/tools/index.ts',
+      'tools.shellTool': 'src/tools/index.ts',
+    };
+
+    const srcFile = path.join(process.cwd(), fileMap[target] || 'src/nervous-system.ts');
+
+    if (!fs.existsSync(srcFile)) {
+      this.log(`目标文件不存在: ${srcFile}`);
+      return;
+    }
 
     const mutation: EvolutionMutation = {
-      type: this.selectMutationType(),
-      target: this.selectMutationTarget(),
-      patch: `// Auto-generated mutation v${Date.now()}`,
+      type: 'code',
+      target,
+      patch: `// 自我进化补丁 v${Date.now()} — ${new Date().toLocaleString()}`,
       version: Date.now(),
       timestamp: Date.now()
     };
 
     this.mutationHistory.push(mutation);
     this.evolutionReadiness = 0;
+    this.generation++;
 
-    this.bus.pulse('evolution:mutation', { mutation }, this.name);
-    this.log(`Mutation applied: ${mutation.type} on ${mutation.target}`);
-  }
+    // 发信号通知 Nova 主动执行自修复
+    this.bus.pulse('evolution:mutation', {
+      mutation,
+      srcFile,
+      instruction: `请在对话中读取 ${srcFile}，分析是否有可优化的缺陷，然后用 write 工具覆写改进。完成后执行 npm run build 并发送 system:reincarnation_ready 信号。`
+    }, this.name);
 
-  private selectMutationType(): EvolutionMutation['type'] {
-    const types: EvolutionMutation['type'][] = ['code', 'prompt', 'config', 'tool'];
-    const weights = [0.3, 0.3, 0.2, 0.2];
-    const r = Math.random();
-    let cumulative = 0;
-    for (let i = 0; i < types.length; i++) {
-      cumulative += weights[i];
-      if (r < cumulative) return types[i];
-    }
-    return 'config';
+    this.log(`🧬 进化指令已发出: ${target}`);
   }
 
   private selectMutationTarget(): string {
@@ -70,22 +85,21 @@ export class ReproductiveSystem extends System {
       'endocrine-system.hormoneThresholds',
       'respiratory-system.tokenBucket',
       'digestive-system.embeddingStrategy',
-      'urinary-system.pruningPolicy'
+      'urinary-system.pruningPolicy',
+      'tools.index',
+      'tools.shellTool',
     ];
     return targets[Math.floor(Math.random() * targets.length)];
   }
 
   spawnChild(name: string, config?: Record<string, unknown>): void {
     this.childAgents.push(name);
-    this.generation++;
-
     this.bus.pulse('evolution:spawned', {
       childName: name,
       generation: this.generation,
       parentMutations: this.mutationHistory.length,
       config
     }, this.name);
-
     this.log(`Spawned child agent: ${name} (gen ${this.generation})`);
   }
 

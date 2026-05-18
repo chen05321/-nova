@@ -5,4 +5,5 @@
 *.js.map
 *.log
 dist/
+hermes/
 node_modules/

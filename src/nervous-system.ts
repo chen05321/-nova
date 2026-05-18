@@ -318,10 +318,10 @@ ARGS: {"key":"value"}
 
     // 已掌握技能 → 注入能力增强提示
     const learnedSkills = this.memory.getFacts('skill').map(f => f.content.replace('[技能] ', '').split(':')[0].trim());
-    const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean);
+    const activeEffects = learnedSkills.map(name => this.skillEffects[name] || `- 已掌握 "${name}" 相关知识，可应用于当前任务`);
     if (activeEffects.length > 0) {
       memories.push('🧠 已掌握技能经验:');
-      for (const e of activeEffects) {
+      for (const e of activeEffects.slice(0, 10)) {
         memories.push(`  ${e}`);
       }
     }

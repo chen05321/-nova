@@ -34,14 +34,59 @@ export class ReproductiveSystem extends System {
     });
 
     // 学习驱动进化：学到新知识 → 对比自身 → 决定是否升级
+    // 知识分类映射：学习主题 → 对应系统 → 对应源码文件
+    const knowledgeMap: Record<string, { system: string; file: string }> = {
+      '文件':     { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '读写':     { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '工具':     { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      'shell':    { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      'git':      { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '网络':     { system: 'NervousSystem', file: 'src/nervous-system.ts' },
+      '搜索':     { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '浏览器':   { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '数据':     { system: 'DigestiveSystem', file: 'src/digestive-system.ts' },
+      'json':     { system: 'DigestiveSystem', file: 'src/digestive-system.ts' },
+      'csv':      { system: 'DigestiveSystem', file: 'src/digestive-system.ts' },
+      '代码':     { system: 'NervousSystem', file: 'src/nervous-system.ts' },
+      '项目':     { system: 'NervousSystem', file: 'src/nervous-system.ts' },
+      'mcp':      { system: 'MusculoskeletalSystem', file: 'src/tools/index.ts' },
+      '提示词':   { system: 'NervousSystem', file: 'src/nervous-system.ts' },
+      'prompt':   { system: 'NervousSystem', file: 'src/nervous-system.ts' },
+      'token':    { system: 'RespiratorySystem', file: 'src/respiratory-system.ts' },
+      '限流':     { system: 'RespiratorySystem', file: 'src/respiratory-system.ts' },
+      '记忆':     { system: 'UrinarySystem', file: 'src/urinary-system.ts' },
+      '缓存':     { system: 'UrinarySystem', file: 'src/urinary-system.ts' },
+      '激素':     { system: 'EndocrineSystem', file: 'src/endocrine-system.ts' },
+      '情绪':     { system: 'EndocrineSystem', file: 'src/endocrine-system.ts' },
+      '能量':     { system: 'CirculatorySystem', file: 'src/event-bus.ts' },
+      '心跳':     { system: 'CirculatorySystem', file: 'src/event-bus.ts' },
+      '进化':     { system: 'ReproductiveSystem', file: 'src/reproductive-system.ts' },
+      '免疫':     { system: 'ImmuneSystem', file: 'src/immune-system.ts' },
+      '安全':     { system: 'ImmuneSystem', file: 'src/immune-system.ts' },
+    };
+
     this.subscribe('learning:complete', (data) => {
       this.incrementReadiness(0.15);
       const topic = (data as any)?.payload?.topic || '';
-      // 有新知识且距上次进化超过 2 分钟 → 触发升级迭代
-      if (topic && Date.now() - this.lastEvolveTime > 120000) {
-        this.log(`🧬 新知识 "${topic}" 驱动进化迭代`);
-        this.triggerEvolution();
+      if (!topic || Date.now() - this.lastEvolveTime < 120000) return;
+
+      // 分类知识到对应的系统
+      let targetFile = '';
+      for (const [keyword, mapping] of Object.entries(knowledgeMap)) {
+        if (topic.toLowerCase().includes(keyword)) {
+          targetFile = mapping.file;
+          this.log(`🧬 知识分类: "${topic}" → ${mapping.system} (${mapping.file})`);
+          break;
+        }
       }
+      // 写 Obsidian 笔记标注系统归属
+      try {
+        const notePath = path.join(os.homedir(), '.nova-vault', '知识', `系统关联_${Date.now().toString(36)}.md`);
+        fs.writeFileSync(notePath, `# 知识-系统关联\n\n知识: ${topic}\n关联系统: ${targetFile || '未分类'}\n时间: ${new Date().toLocaleString()}\n`, 'utf-8');
+      } catch {}
+
+      this.log(`🧬 新知识 "${topic}" 驱动进化迭代`);
+      this.triggerEvolution();
     });
 
     // 持续迭代：每 5 分钟主动自检一次，不管有没有错误

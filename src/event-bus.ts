@@ -1,3 +1,4 @@
+import * as os from 'os';
 import { EventEmitter } from 'events';
 import { NovaEvent, EnergyFlow, HeartbeatState, GrowthStage, WasteMetrics } from './types';
 
@@ -116,6 +117,19 @@ export class CirculatorySystem extends EventEmitter {
   private beat(): void {
     this._beat++;
     this.lastBeatTime = Date.now();
+
+    // 硬件体征映射：CPU 负载 → 额外能耗
+    try {
+      const cpuLoad = os.loadavg()[0]; // 1 分钟平均负载
+      const cpuCores = os.cpus().length;
+      const cpuPercent = Math.min(1, cpuLoad / cpuCores);
+      if (cpuPercent > 0.7) {
+        this._energy = Math.max(0, this._energy - this.bmrPerBeat * cpuPercent);
+        this.addWaste('stale', Math.round(cpuPercent * 2));
+        // CPU > 70% 时触发压力激素信号
+        this.pulse('hormone:shift', { type: 'cortisol', level: cpuPercent * 0.3, source: 'HardwareMonitor' }, 'CirculatorySystem');
+      }
+    } catch {}
 
     // BMR: each beat consumes energy just to stay alive
     const hour = new Date().getHours();

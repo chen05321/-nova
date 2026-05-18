@@ -90,15 +90,22 @@ export class ReproductiveSystem extends System {
     const prompt = `你现在是超体的终极进化主控脑。请全盘审计当前 TypeScript 文件的架构缺陷。
 
 要求：
-- 你被允许重写该文件的整个内部函数实现
+- 你被允许重写该文件的任意函数实现
 - 可以引入更高级的设计模式（单例、依赖注入、状态机等）
 - 必须严格保证全量 TypeScript 编译通过
-- 返回完整的修改后文件内容，不要省略
+- 返回 **Unified Diff 格式**的补丁，只包含修改的行
+- 格式: @@ -行号 +行号 @@ 上下文，用 + 开头标注新增行，- 开头标注删除行
+- 禁止输出完整文件，只输出 diff
 
 当前文件: ${relPath}
 ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
-\n\`\`\`typescript\n${currentCode.substring(0, 3000)}\n\`\`\`
-\n请返回改进后的完整 TypeScript 代码：`;
+
+原始代码:
+\`\`\`typescript
+${currentCode.substring(0, 3000)}
+\`\`\`
+
+请返回 Unified Diff 补丁：`;
 
     let improvedCode = '';
     try {
@@ -128,6 +135,16 @@ ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
       return;
     }
 
+    // 提取 diff 补丁内容（支持纯 diff 或 ```diff 包裹）
+    let diffContent = improvedCode;
+    const diffMatch = improvedCode.match(/```(?:diff)?\n?([\s\S]*?)```/);
+    if (diffMatch) diffContent = diffMatch[1].trim();
+    // 如果 LLM 返回的是完整文件而非 diff，回退到全量覆写
+    const isFullFile = !diffContent.includes('@@ ') && !diffContent.includes('---');
+    if (isFullFile) {
+      improvedCode = diffContent; // 当作全量文件处理
+    }
+
     // 5. Git 沙箱分支进化
     const branchName = `evolution/mutation_v${this.generation}`;
     const isGitRepo = fs.existsSync(path.join(process.cwd(), '.git'));
@@ -135,11 +152,21 @@ ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
       try { execSync(`git stash 2>/dev/null; git checkout -b ${branchName}`, { cwd: process.cwd(), timeout: 10000, encoding: 'utf-8' }); } catch {}
     }
 
-    // 6. 写改进后的代码
+    // 6. 应用补丁（diff 模式用 patch，全量模式直接写）
     try {
-      fs.writeFileSync(srcFile, improvedCode, 'utf-8');
+      if (isFullFile) {
+        fs.writeFileSync(srcFile, improvedCode, 'utf-8');
+      } else {
+        const diffPath = path.join(process.cwd(), `.evolution_diff_${Date.now()}.patch`);
+        fs.writeFileSync(diffPath, diffContent, 'utf-8');
+        try {
+          execSync(`patch "${srcFile}" "${diffPath}" 2>&1`, { cwd: process.cwd(), timeout: 10000, encoding: 'utf-8' });
+        } finally {
+          try { fs.unlinkSync(diffPath); } catch {}
+        }
+      }
     } catch (err: any) {
-      this.log(`进化: 写文件失败: ${err.message}`);
+      this.log(`进化: 应用补丁失败: ${err.message}`);
       if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
       return;
     }

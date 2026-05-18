@@ -7,6 +7,7 @@ import { RespiratorySystem } from './respiratory-system';
 import { DigestiveSystem } from './digestive-system';
 import { UrinarySystem } from './urinary-system';
 import { ReproductiveSystem } from './reproductive-system';
+import { ImmuneSystem } from './immune-system';
 import { System } from './system';
 import { MemoryStore } from './memory';
 import { ForagingSystem } from './foraging';
@@ -58,6 +59,7 @@ export class NovaAgent {
   digestive!: DigestiveSystem;
   urinary!: UrinarySystem;
   reproductive!: ReproductiveSystem;
+  immune!: ImmuneSystem;
 
   constructor() {
     this.bus = CirculatorySystem.getInstance();
@@ -369,6 +371,7 @@ export class NovaAgent {
     this.digestive = new DigestiveSystem();
     this.urinary = new UrinarySystem();
     this.reproductive = new ReproductiveSystem();
+    this.immune = new ImmuneSystem();
 
     this.systems.set('NervousSystem', this.nervous);
     this.systems.set('MusculoskeletalSystem', this.musculoskeletal);
@@ -377,6 +380,7 @@ export class NovaAgent {
     this.systems.set('DigestiveSystem', this.digestive);
     this.systems.set('UrinarySystem', this.urinary);
     this.systems.set('ReproductiveSystem', this.reproductive);
+    this.systems.set('ImmuneSystem', this.immune);
 
     for (const [name, system] of this.systems) {
       await system.init();

@@ -94,7 +94,9 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <div class="bg-slate-950/80 px-4 py-1.5 border-b border-black text-[11px] font-mono text-cyan-400/80 truncate shrink-0">🧠 <span id="thought-chunk-live" class="text-slate-300 italic">流式思维感知就绪...</span></div>
 
 <div class="flex flex-1 overflow-hidden relative min-w-0">
-  <div id="sessions-sidebar" class="w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0"></div>
+  <div id="sessions-sidebar" class="w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0">
+    <button id="btn-new-session" type="button" class="w-full bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-1.5 rounded-xl transition-all active:scale-95 text-center text-[11px] cursor-pointer">＋ 新建会话</button>
+  </div>
   
   <div id="chat-viewport" class="flex-1 p-5 overflow-y-auto space-y-4 text-sm leading-relaxed min-w-0">
     <div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="bg-slate-900/60 border border-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-slate-300 bubble-text">控制舱空间锁定完毕。弹性视窗防横向爆炸协议已生效。</div></div>
@@ -142,6 +144,7 @@ var cv=document.getElementById('chat-viewport'),cf=document.getElementById('chat
 var cp=document.getElementById('cfg-provider'),cb=document.getElementById('cfg-baseurl'),cm=document.getElementById('cfg-model'),ck=document.getElementById('cfg-apikey'),clf=document.getElementById('config-llm-form'),bo=document.getElementById('btn-opencode-import');
 var tList=document.getElementById('tasks-list'), bAddTask=document.getElementById('btn-add-task'), sSidebar=document.getElementById('sessions-sidebar'), bToggleSidebar=document.getElementById('btn-toggle-sidebar'), bToggleLeft=document.getElementById('btn-toggle-left'), lSidebar=document.getElementById('left-sidebar');
 var bToggleRight=document.getElementById('btn-toggle-right'), rSidebar=document.getElementById('right-sidebar');
+var bNewSession=document.getElementById('btn-new-session');
 var ab=null;
 
 // 右侧面板缩进
@@ -164,6 +167,14 @@ bToggleLeft.onclick = function() {
   } else {
     lSidebar.className = "w-0 p-0 m-0 border-0 overflow-hidden shrink-0 transition-all duration-300 ease-in-out";
   }
+};
+
+// 新建会话
+bNewSession.onclick = async function() {
+  try{await fetch('/api/session/new',{method:'POST'});}catch(e){}
+  cv.innerHTML = ''; ab = null;
+  syncChatHistory();
+  loadSessions();
 };
 
 // 内部左侧历史抽屉收放

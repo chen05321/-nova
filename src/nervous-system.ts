@@ -149,16 +149,18 @@ ARGS: {"key":"value"}
         break;
       }
 
-      // 🧠 规划阶段：用 Deep 模型拆解任务，生成执行计划
+      // 🧠 规划阶段（快速，5 秒超时）
       try {
         this.bus.pulse('thought:chunk', { chunk: '\n🧠 规划中...' }, this.name);
-        const planPrompt = `将以下用户请求拆解为 1-3 个具体步骤，每步一行，格式: "步骤N: 做什么"。只输出步骤列表，不要多余的话。\n\n用户请求: ${text}`;
-        const planResult = await this.llmAdapters.deep.chat([{ role: 'user', content: planPrompt }]);
+        const planPrompt = `将以下请求拆为 1-3 步，每行 "步骤N: 做什么"，不要多余的话:\n\n${text}`;
+        const planPromise = this.llmAdapters.fast.chat([{ role: 'user', content: planPrompt }]);
+        const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('plan timeout')), 5000));
+        const planResult = await Promise.race([planPromise, timeoutPromise]);
         const planContent = planResult?.content || '';
         const planLines = planContent.split('\n').filter((l: string) => l.trim().match(/^步骤\d/));
-        if (planLines.length > 0) {
+        if (planLines.length > 0 && planLines.length <= 3) {
           this.conversationHistory.push({ role: 'assistant', content: `[执行计划]\n${planLines.join('\n')}` });
-          this.bus.pulse('thought:chunk', { chunk: `\n📋 计划:\n${planLines.join('\n')}` }, this.name);
+          this.bus.pulse('thought:chunk', { chunk: `\n📋 ${planLines.join(' → ')}` }, this.name);
         }
       } catch {}
 

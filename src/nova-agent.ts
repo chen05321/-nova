@@ -82,7 +82,11 @@ export class NovaAgent {
     this.memory.addFact(`wisdom:${this.wisdomScore}`, 'wisdom', 0.9);
   }
 
+  private lifecycleReady = false;
+
   private setupLifecycle(): void {
+    if (this.lifecycleReady) return; // 防止重复调用堆积监听
+    this.lifecycleReady = true;
     // ═══════════ FEEDBACK LOOP MATRIX ═══════════
 
     // 1. Digestive → Respiratory: knowledge processing consumes tokens

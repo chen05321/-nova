@@ -104,10 +104,10 @@ export class ForagingSystem {
     const topics = this.memory.getFacts('topic');
     const foraged = this.memory.getFacts('foraged');
 
-    const knownTopics = new Set(foraged.map(f => f.content.substring(0, 30)));
+    const knownTopics = new Set(foraged.filter(f => f.content).map(f => f.content.substring(0, 30)));
 
     // Prioritize topics the user has discussed but hasn't foraged yet
-    const unvisited = topics.filter(t => !knownTopics.has(t.content.substring(0, 30)));
+    const unvisited = topics.filter(t => t.content && !knownTopics.has(t.content.substring(0, 30)));
     if (unvisited.length > 0) {
       return unvisited[Math.floor(Math.random() * unvisited.length)].content.replace('讨论过: ', '');
     }

@@ -154,7 +154,8 @@ ARGS: {"key":"value"}
         this.bus.pulse('thought:chunk', { chunk: '\n🧠 规划中...' }, this.name);
         const planPrompt = `将以下用户请求拆解为 1-3 个具体步骤，每步一行，格式: "步骤N: 做什么"。只输出步骤列表，不要多余的话。\n\n用户请求: ${text}`;
         const planResult = await this.llmAdapters.deep.chat([{ role: 'user', content: planPrompt }]);
-        const planLines = planResult.content.split('\n').filter((l: string) => l.trim().match(/^步骤\d/));
+        const planContent = planResult?.content || '';
+        const planLines = planContent.split('\n').filter((l: string) => l.trim().match(/^步骤\d/));
         if (planLines.length > 0) {
           this.conversationHistory.push({ role: 'assistant', content: `[执行计划]\n${planLines.join('\n')}` });
           this.bus.pulse('thought:chunk', { chunk: `\n📋 计划:\n${planLines.join('\n')}` }, this.name);

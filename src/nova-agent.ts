@@ -115,12 +115,51 @@ export class NovaAgent {
       this.wisdomScore += 1;
     });
 
-    // 5. Endocrine → Energy coupling
+    // 5. Endocrine → 多系统行为联动
     this.bus.on('hormone:shift', (data) => {
       const s = (data as any)?.payload;
-      if (s?.type === 'adrenaline' && s?.level > 0.6) this.bus.produceEnergy('NovaAgent', 3);
-      if (s?.type === 'dopamine' && s?.level > 0.6) this.personality.creativity = Math.min(1, this.personality.creativity + 0.05);
-      if (s?.type === 'cortisol' && s?.level > 0.6) this.personality.riskTolerance = Math.max(0, this.personality.riskTolerance - 0.05);
+      if (!s) return;
+
+      const { type, level } = s;
+
+      // 肾上腺素 > 0.5：紧迫感，产生能量，提高认知负载
+      if (type === 'adrenaline') {
+        if (level > 0.5) this.bus.produceEnergy('NovaAgent', Math.round(level * 10));
+        if (level > 0.8) {
+          this.bus.pulse('thought:chunk', { chunk: '\n⚡ 肾上腺素飙升，加速执行！' }, 'NovaAgent');
+        }
+      }
+
+      // 皮质醇 > 0.5：压力，消耗能量，降低冒险性，累积毒素
+      if (type === 'cortisol') {
+        if (level > 0.5) this.bus.consumeEnergy('NovaAgent', Math.round(level * 8));
+        if (level > 0.6) {
+          this.personality.riskTolerance = Math.max(0, this.personality.riskTolerance - 0.08);
+          this.bus.addWaste('hallucination', Math.round(level * 3));
+          this.bus.pulse('thought:chunk', { chunk: '\n😰 压力过大，产生废物...' }, 'NovaAgent');
+        }
+        if (level > 0.85) {
+          // 极度压力 → 强制切换快速模型，减少思考深度
+          this.bus.pulse('thought:chunk', { chunk: '\n🚨 皮质醇爆表，切换到快速模式！' }, 'NovaAgent');
+        }
+      }
+
+      // 多巴胺 > 0.5：奖励，提升创造力和好奇心
+      if (type === 'dopamine') {
+        if (level > 0.5) {
+          this.personality.creativity = Math.min(1, this.personality.creativity + 0.08);
+          this.personality.curiosity = Math.min(1, this.personality.curiosity + 0.05);
+          this.bus.produceEnergy('NovaAgent', Math.round(level * 5));
+        }
+        if (level > 0.8) {
+          this.bus.pulse('thought:chunk', { chunk: '\n✨ 多巴胺爆棚，状态极佳！' }, 'NovaAgent');
+        }
+      }
+
+      // 血清素 > 0.7：稳定状态，节能模式
+      if (type === 'serotonin' && level > 0.7) {
+        this.bus.pulse('thought:chunk', { chunk: '\n😌 状态平稳，高效运转中。' }, 'NovaAgent');
+      }
     });
 
     // 6. High waste degrades performance

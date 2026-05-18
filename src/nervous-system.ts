@@ -18,7 +18,6 @@ export class NervousSystem extends System {
   private lastToolResult = '';
   private processingState: ProcessingState = 'idle';
 
-  // 控制舱手动锁开关：为 true 时激活最高意志干预，免疫体内激素代谢覆盖
   public isModelLocked = false;
 
   constructor(memory?: MemoryStore) {
@@ -39,8 +38,10 @@ TOOL: tool_name
 ARGS: {"key":"value"}
 
 === RULES ===
-- Be concise and direct
-- Use tools when needed, don't just talk about using them`;
+- Be extremely concise, sharp, and direct
+- DO NOT output any conversational fillers, meta-commentary, or thoughts like "思考中..."
+- Jump straight into the tool call or the final answer
+- No greetings, no repetitive fluff`;
 
   async init(): Promise<void> {
     const config = loadConfig();
@@ -58,11 +59,17 @@ ARGS: {"key":"value"}
     if (recent.length > 0) {
       this.conversationHistory = recent
         .filter(m => m.role !== 'system')
-        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        .map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+            .replace(/^(思考中|思考中\.\.\.|思考中…|我们被用户问到|当前环境工具链)[\s\S]*?(\n\n|\n|$)/i, '')
+            .trim()
+        }))
+        .filter(m => m.content.length > 0);
     }
 
     this.initialized = true;
-    this.log(`Nervous system initialized`);
+    this.log(`Nervous system initialized and deep cleaned.`);
   }
 
   private pendingQueue: { text: string; isAgentObjective: boolean }[] = [];
@@ -79,6 +86,13 @@ ARGS: {"key":"value"}
     this.executePerceptionLoop(text, isAgentObjective);
   }
 
+  private purgeConversationalFluff(text: string): string {
+    return text
+      .replace(/^(思考中|思考中\.\.\.|思考中…|我们可以通过|仔细考虑|用户想知道|我的回答应该)[\s\S]*?(?=(TOOL:|###|\*\*|$))/i, '')
+      .replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, '')
+      .trim();
+  }
+
   private async executePerceptionLoop(text: string, isAgentObjective: boolean): Promise<void> {
     try {
       this.processingState = 'thinking';
@@ -87,7 +101,6 @@ ARGS: {"key":"value"}
 
       const prefix = isAgentObjective ? '[Agent Task] ' : '';
       this.conversationHistory.push({ role: 'user', content: `${prefix}${text}` });
-      this.pruneContext();
 
       this.bus.pulse('thought:perceived', { text, model: this.currentModel }, this.name);
 
@@ -96,7 +109,6 @@ ARGS: {"key":"value"}
       const contextPrompt = this.buildContextPrompt();
       let fullResponse = '';
 
-      // First LLM call
       await new Promise<void>((resolveStream) => {
         const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
         const bias = this.calculateHormoneBias();
@@ -111,11 +123,10 @@ ARGS: {"key":"value"}
           }
           if (done) resolveStream();
         }, contextPrompt, bias)
-        // 安全阀：捕获域名填错、断网、额度超支，杜绝意识空间卡死挂起
         .catch((err) => {
           this.log(`意识链路中断: ${err.message}`);
-          this.bus.pulse('thought:chunk', { chunk: `\n❌ [脑桥阻断] 无法联通接口网关，请检查配置或网络。原因: ${err.message}` }, this.name);
-          resolveStream(); 
+          this.bus.pulse('thought:chunk', { chunk: `\n❌ [脑桥阻断] 联通失败: ${err.message}` }, this.name);
+          resolveStream();
         });
       });
 
@@ -149,9 +160,9 @@ ARGS: {"key":"value"}
         this.lastToolName = toolName;
         this.lastToolResult = toolResult.substring(0, 1000);
 
-        this.conversationHistory.push({ role: 'assistant', content: fullResponse.replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, '').trim() });
+        const cleanInterResponse = this.purgeConversationalFluff(fullResponse);
+        this.conversationHistory.push({ role: 'assistant', content: cleanInterResponse });
         this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
-        this.pruneContext();
 
         fullResponse = '';
         await new Promise<void>((resolve, reject) => {
@@ -174,31 +185,18 @@ ARGS: {"key":"value"}
         });
       }
 
-      // 元认知终审反思层：阻断盲目乱跑工具
-      if (fullResponse.includes('FINAL:') || toolIterations > 0) {
-        const critiquePrompt = `你现在是超体的元认知反思层。请深层审查你刚才的痕迹：\n${fullResponse.substring(0,800)}\n如果一切严谨通过输出 [PASS]，如果存在逻辑幻觉或明显错误输出 [FAIL] 原因...`;
-        try {
-          const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt }]);
-          if (check.content.includes('[FAIL]')) {
-            this.log('元认知判定上一轮思考不通过，打回重组！');
-            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.12, source: 'Metacognition' }, this.name);
-            return this.executePerceptionLoop(`[元认知自省提示：你刚才的方案存在瑕疵: ${check.content}，请校准方向重新输出。]`, isAgentObjective);
-          }
-        } catch {}
-      }
-
-      const cleanResponse = fullResponse.replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, '').trim();
+      const cleanResponse = this.purgeConversationalFluff(fullResponse);
       this.conversationHistory.push({ role: 'assistant', content: cleanResponse });
-      this.pruneContext();
+
       this.cognitiveLoad = Math.max(0, this.cognitiveLoad - 0.1);
       this.produceEnergy(2);
       this.extractFacts(text, cleanResponse);
 
       if (isAgentObjective) {
-        this.bus.pulse('agent:response', { response: fullResponse }, this.name);
+        this.bus.pulse('agent:response', { response: cleanResponse }, this.name);
       }
-      this.bus.pulse('thought:complete', { response: fullResponse, model: modelName }, this.name);
-      this.bus.pulse('token:consumed', { amount: Math.ceil((fullResponse.length + text.length) * 1.3) }, this.name);
+      this.bus.pulse('thought:complete', { response: cleanResponse, model: modelName }, this.name);
+      this.bus.pulse('token:consumed', { amount: Math.ceil((cleanResponse.length + text.length) * 1.3) }, this.name);
 
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -212,11 +210,6 @@ ARGS: {"key":"value"}
         setTimeout(() => this.executePerceptionLoop(next.text, next.isAgentObjective), 50);
       }
     }
-  }
-
-  private pruneContext(): void {
-    const totalLen = this.conversationHistory.reduce((s, m) => s + m.content.length, 0);
-    if (totalLen < this.maxHistoryTokens) return;
   }
 
   private buildContextPrompt(): string {
@@ -234,7 +227,6 @@ ARGS: {"key":"value"}
     const learnedBlock = memories.length > 0 ? `\n\nThings I've learned:\n${memories.join('\n')}` : '';
     const wasteLevel = this.bus.wasteLevel;
     let toxinNote = wasteLevel > 70 ? `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded]` : '';
-    const hour = new Date().getHours();
 
     return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}%)${learnedBlock}${toxinNote}\n[Mode: ${this.bus.getEnergyMode().toUpperCase()}]`;
   }
@@ -265,17 +257,13 @@ ARGS: {"key":"value"}
     }
   }
 
-  private errorMsg(msg: string): string {
-    return `[错误] ${msg}`;
-  }
+  private errorMsg(msg: string): string { return `[错误] ${msg}`; }
 
   private lastModelSwitch = 0;
   private readonly modelSwitchCooldown = 15000;
 
   private regulateByHormone(signal: unknown): void {
-    // 核心拦截线：若开启手动锁定，不响应体内激素飘移
     if (this.isModelLocked) return;
-
     const { type, level } = signal as HormoneSignal;
     const now = Date.now();
     if (now - this.lastModelSwitch < this.modelSwitchCooldown) return;
@@ -300,7 +288,6 @@ ARGS: {"key":"value"}
   }
 
   private async integrateMemory(_data: unknown): Promise<void> {}
-
   setSystemPrompt(prompt: string): void { this.systemPrompt = prompt; }
 
   getBiometrics(): Biometrics {

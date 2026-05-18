@@ -185,6 +185,19 @@ ARGS: {"key":"value"}
         });
       }
 
+      // 元认知反思层：审查工具调用结果，阻断幻觉与逻辑错误
+      if (toolIterations > 0) {
+        const critiquePrompt = `Now review the response above. If it contains errors, hallucinations, or failed to achieve the goal, output [FAIL] followed by the reason. Otherwise output [PASS].`;
+        try {
+          const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt + '\n\n' + fullResponse.substring(0, 800) }]);
+          if (check.content.includes('[FAIL]')) {
+            this.log('元认知判定不通过，打回重组');
+            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.12, source: 'Metacognition' }, this.name);
+            return this.executePerceptionLoop(`[自我修正] 上一轮存在缺陷: ${check.content.substring(0, 200)}，请改正。`, isAgentObjective);
+          }
+        } catch {}
+      }
+
       const cleanResponse = this.purgeConversationalFluff(fullResponse);
       this.conversationHistory.push({ role: 'assistant', content: cleanResponse });
 

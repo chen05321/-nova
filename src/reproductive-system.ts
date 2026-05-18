@@ -10,29 +10,52 @@ export class ReproductiveSystem extends System {
   private mutationHistory: EvolutionMutation[] = [];
   private evolutionReadiness = 0;
   private childAgents: string[] = [];
+  private errorHistory: Map<string, number> = new Map(); // 同一错误类型计数
+  private lastEvolveTime = 0;
 
   async init(): Promise<void> {
-    this.subscribe('urinary:toxic', () => this.triggerEvolution());
+    // 错误累积（保留，用于紧急修复）
     this.subscribe('system:error', () => this.incrementReadiness(0.1));
-    this.subscribe('action:failed', () => this.incrementReadiness(0.05));
-    this.subscribe('action:completed', () => this.incrementReadiness(0.02));
-    this.subscribe('learning:complete', () => this.incrementReadiness(0.15));
-    // 定时自检：快速进化模式，每 1 分钟检查一次
-    setInterval(() => this.autoEvolveCheck(), 60000);
+    this.subscribe('action:failed', (data) => {
+      this.incrementReadiness(0.05);
+      // 三振出局：同一工具失败 3 次 → 强制进化
+      const tool = (data as any)?.payload?.tool || 'unknown';
+      const count = (this.errorHistory.get(tool) || 0) + 1;
+      this.errorHistory.set(tool, count);
+      if (count >= 3) {
+        this.log(`⚡ 三振出局: ${tool} 已失败 ${count} 次，强制进化`);
+        this.triggerEvolution();
+      }
+    });
+    this.subscribe('action:completed', (data) => {
+      this.incrementReadiness(0.02);
+      const tool = (data as any)?.payload?.tool || '';
+      if (tool) this.errorHistory.delete(tool);
+    });
+
+    // 学习驱动进化：学到新知识 → 对比自身 → 决定是否升级
+    this.subscribe('learning:complete', (data) => {
+      this.incrementReadiness(0.15);
+      const topic = (data as any)?.payload?.topic || '';
+      // 有新知识且距上次进化超过 2 分钟 → 触发升级迭代
+      if (topic && Date.now() - this.lastEvolveTime > 120000) {
+        this.log(`🧬 新知识 "${topic}" 驱动进化迭代`);
+        this.triggerEvolution();
+      }
+    });
+
+    // 持续迭代：每 5 分钟主动自检一次，不管有没有错误
+    setInterval(() => this.continuousIteration(), 300000);
 
     this.initialized = true;
     this.log(`Reproductive system initialized (generation ${this.generation})`);
   }
 
-  // 自动进化检查：readiness > 0.9 且 5 分钟内没进化过就自动触发
-  private autoEvolveCheck(): void {
-    if (this.evolutionReadiness > 0.7) {
-      const recent = this.mutationHistory.filter(m => Date.now() - m.timestamp < 120000).length;
-      if (recent === 0) {
-        this.log('🧬 自动自检: readiness 充足，触发自我进化');
-        this.triggerEvolution();
-      }
-    }
+  // 持续迭代：不管有没有错，定期尝试优化代码
+  private continuousIteration(): void {
+    if (Date.now() - this.lastEvolveTime < 240000) return; // 至少间隔 4 分钟
+    this.log('🧬 定期迭代：主动寻优代码…');
+    this.triggerEvolution();
   }
 
   private incrementReadiness(amount: number): void {
@@ -209,6 +232,7 @@ ${currentCode.substring(0, 3000)}
     this.evolutionReadiness = 0;
     this.generation++;
 
+    this.lastEvolveTime = Date.now();
     this.bus.pulse('evolution:mutation', { mutation, srcFile }, this.name);
     this.log(`✅ 进化完成 (gen ${this.generation}): ${relPath}`);
 

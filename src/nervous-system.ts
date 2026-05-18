@@ -101,6 +101,8 @@ ARGS: {"key":"value"}
       .trim();
   }
 
+  private metacognitionRetries = 0;
+
   private async executePerceptionLoop(text: string, isAgentObjective: boolean): Promise<void> {
     try {
       this.processingState = 'thinking';
@@ -238,22 +240,29 @@ ARGS: {"key":"value"}
           const check = await this.llmAdapters.fast.chat([{ role: 'user', content: critiquePrompt + '\n\n' + fullResponse.substring(0, 1000) }]);
 
           if (check.content.includes('[FAIL]')) {
-            this.log('🚨 元认知判定不通过！正在物理注入错题经验，强行阻断死循环...');
-            this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.15, source: 'Metacognition' }, this.name);
+            this.metacognitionRetries++;
+            if (this.metacognitionRetries > 3) {
+              this.log('🚨 元认知重试超过 3 次，放弃修正');
+              this.metacognitionRetries = 0;
+              this.bus.pulse('thought:chunk', { chunk: '\n⚠️ 多次修正失败，跳过继续执行。' }, this.name);
+            } else {
+              this.log('🚨 元认知判定不通过！正在物理注入错题经验，强行阻断死循环...');
+              this.bus.pulse('hormone:shift', { type: 'cortisol', level: 0.15, source: 'Metacognition' }, this.name);
 
-            const failReason = check.content.replace('[FAIL]', '').trim();
+              const failReason = check.content.replace('[FAIL]', '').trim();
 
-            this.memory.writeKnowledgeNote(
-              '知识',
-              '避坑自省_当前任务',
-              `# 行为自省缺陷集\n更新时间: ${new Date().toLocaleTimeString()}\n\n## 致命错误原因\n${failReason}\n\n## 修正指引\n在下一轮执行时，绝对禁止重复上述死路！`,
-              ['元认知反思', '硬核纠偏']
-            );
+              this.memory.writeKnowledgeNote(
+                '知识',
+                '避坑自省_当前任务',
+                `# 行为自省缺陷集\n更新时间: ${new Date().toLocaleTimeString()}\n\n## 致命错误原因\n${failReason}\n\n## 修正指引\n在下一轮执行时，绝对禁止重复上述死路！`,
+                ['元认知反思', '硬核纠偏']
+              );
 
-            return this.executePerceptionLoop(
-              `[看门狗强制拦截：你刚才的方案炸了！错题本自省原因提示：${failReason}。请立刻转换思路，重新组织架构工具执行！]`,
-              isAgentObjective
-            );
+              return this.executePerceptionLoop(
+                `[看门狗强制拦截：你刚才的方案炸了！错题本自省原因提示：${failReason}。请立刻转换思路，重新组织架构工具执行！]`,
+                isAgentObjective
+              );
+            }
           }
         } catch (critiqueErr) {
           this.log(`元认知审查通道故障: ${critiqueErr}`);

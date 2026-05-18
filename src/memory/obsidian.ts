@@ -43,8 +43,10 @@ ${content}${linkBlock}${tagBlock}
 
 // 搜索笔记（按文件名或内容关键词模糊匹配）
 export function searchNotes(query: string, maxResults = 5): { file: string; title: string; snippet: string }[] {
-  const results: { file: string; title: string; snippet: string }[] = [];
-  const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const results: { file: string; title: string; snippet: string; score: number }[] = [];
+  const keywords = query.toLowerCase().split(/[\s,.-]+/).filter(Boolean);
+
+  if (keywords.length === 0) return [];
 
   function walk(dir: string): void {
     if (!fs.existsSync(dir)) return;
@@ -54,19 +56,27 @@ export function searchNotes(query: string, maxResults = 5): { file: string; titl
         walk(full);
       } else if (entry.name.endsWith('.md')) {
         const content = fs.readFileSync(full, 'utf-8');
-        const lower = content.toLowerCase();
-        const matchCount = keywords.filter(k => lower.includes(k)).length;
-        if (matchCount > 0) {
+        const lowerContent = content.toLowerCase();
+        const lowerName = entry.name.toLowerCase();
+
+        let score = 0;
+        keywords.forEach(kw => {
+          if (lowerName.includes(kw)) score += 50;
+          const matches = lowerContent.split(kw).length - 1;
+          score += matches * 2;
+        });
+
+        if (score > 0) {
           const lines = content.split('\n');
           const title = lines.find(l => l.startsWith('# '))?.replace('# ', '').trim() || entry.name.replace('.md', '');
-          const snippet = lines.slice(1, 6).filter(l => {
-            const lc = l.toLowerCase();
-            return keywords.some(k => lc.includes(k));
-          }).join(' ').substring(0, 200) || content.substring(0, 200);
+          let bestLine = lines.find(l => keywords.some(k => l.toLowerCase().includes(k)) && !l.startsWith('#')) || lines[1] || '';
+          const snippet = bestLine.substring(0, 200) || content.substring(0, 200);
+
           results.push({
             file: path.relative(VAULT_DIR, full),
             title,
-            snippet: snippet.replace(/[#*\[\]]/g, '').trim()
+            snippet: snippet.replace(/[#*\[\]`]/g, '').trim(),
+            score
           });
         }
       }
@@ -74,7 +84,10 @@ export function searchNotes(query: string, maxResults = 5): { file: string; titl
   }
 
   walk(VAULT_DIR);
-  return results.sort((a, b) => b.snippet.length - a.snippet.length).slice(0, maxResults);
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults)
+    .map(({ file, title, snippet }) => ({ file, title, snippet }));
 }
 
 // 获取所有笔记标题（用于构建图谱）

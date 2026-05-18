@@ -10,6 +10,7 @@ import { ReproductiveSystem } from './reproductive-system';
 import { System } from './system';
 import { MemoryStore } from './memory';
 import { ForagingSystem } from './foraging';
+import { SelfLearningSystem } from './learning';
 
 interface StageRequirement {
   actionsRequired: number;
@@ -43,6 +44,7 @@ export class NovaAgent {
     verbosity: 0.5, riskTolerance: 0.5,
     creativity: 0.5, curiosity: 0.5, thoroughness: 0.5
   };
+  public isSleeping = false;
   private wisdomScore = 0;
 
   get Personality(): PersonalityVector { return { ...this.personality }; }
@@ -63,7 +65,10 @@ export class NovaAgent {
     this.startTime = Date.now();
     this.loadPersonality();
     this.foraging = new ForagingSystem(this.personality, this.memory);
+    this.learning = new SelfLearningSystem(this.memory);
     this.setupLifecycle();
+  }
+
   private loadPersonality(): void {
     const facts = this.memory.getFacts('personality');
     if (facts.length > 0) {
@@ -427,6 +432,7 @@ export class NovaAgent {
   private async scheduleLearnCycle(): Promise<void> {
     const run = async () => {
       try {
+        const results = await this.learning.learnCycle();
         if (results.length > 0) {
           this.bus.pulse('learning:cycle', { learned: results, count: results.length }, 'NovaAgent');
         }

@@ -1,0 +1,9 @@
+{
+  "hermes": {
+    "command": "python3",
+    "args": ["/Users/sy/Desktop/hermes/mcp_server.py"],
+    "env": {
+      "PYTHONUNBUFFERED": "1"
+    }
+  }
+}

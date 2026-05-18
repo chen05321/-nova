@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Agent — 人体架构设计蓝图 v2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f12;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  padding: 40px;
+  line-height: 1.6;
+}
+h1 {
+  font-size: 36px;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #fff;
+  letter-spacing: 2px;
+}
+.subtitle {
+  text-align: center;
+  color: #888;
+  margin-bottom: 40px;
+  font-size: 14px;
+}
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  max-width: 1600px;
+  margin: 0 auto 60px;
+}
+.system-card {
+  background: #1a1a24;
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid #555;
+  transition: transform 0.2s;
+}
+.system-card:hover { transform: translateY(-2px); }
+.system-card .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.system-card .header h2 {
+  font-size: 16px;
+  color: #fff;
+  margin: 0;
+}
+.system-card .status-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-badge.ps { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+.status-badge.p4 { background: #a855f722; color: #a855f7; border: 1px solid #a855f744; }
+.status-badge.p3 { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; }
+.status-badge.p2 { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
+.status-badge.p1 { background: #ef444466; color: #ff6b6b; border: 1px solid #ef444488; }
+.system-card .organs { font-size: 11px; color: #888; margin-bottom: 8px; }
+.system-card .desc { font-size: 13px; color: #ccc; margin-bottom: 10px; line-height: 1.5; }
+.system-card .subsystems { font-size: 12px; color: #aaa; }
+.system-card .subsystems span { display: inline-block; background: #ffffff08; padding: 2px 8px; border-radius: 10px; margin: 2px 4px 2px 0; }
+.system-card .heatbar { height: 4px; border-radius: 2px; margin-top: 10px; background: #333; overflow: hidden; }
+.system-card .heatbar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+.heat-1 { background: linear-gradient(90deg, #ef4444, #f97316); width: 10%; }
+.heat-2 { background: linear-gradient(90deg, #ef4444, #f97316); width: 20%; }
+.heat-3 { background: linear-gradient(90deg, #f97316, #f59e0b); width: 30%; }
+.heat-4 { background: linear-gradient(90deg, #f59e0b, #84cc16); width: 40%; }
+.heat-5 { background: linear-gradient(90deg, #84cc16, #22c55e); width: 50%; }
+.heat-6 { background: linear-gradient(90deg, #84cc16, #22c55e); width: 60%; }
+.heat-7 { background: linear-gradient(90deg, #22c55e, #22c55e); width: 75%; }
+.heat-8 { background: linear-gradient(90deg, #22c55e, #22c55e); width: 80%; }
+
+.section-title {
+  font-size: 22px;
+  color: #fff;
+  margin: 50px 0 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #333;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.connection-diagram {
+  max-width: 1600px;
+  margin: 0 auto 60px;
+  background: #1a1a24;
+  border-radius: 12px;
+  padding: 30px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  color: #aaa;
+}
+.connection-diagram .highlight { color: #22c55e; }
+.connection-diagram .hl-brain { color: #a855f7; }
+.connection-diagram .hl-heart { color: #ef4444; }
+.connection-diagram .hl-filter { color: #f59e0b; }
+
+.legend {
+  display: flex;
+  gap: 30px;
+  max-width: 1600px;
+  margin: 0 auto 40px;
+  flex-wrap: wrap;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+.legend-dot.green { background: #22c55e; }
+.legend-dot.yellow { background: #f59e0b; }
+.legend-dot.red { background: #ef4444; }
+.legend-dot.purple { background: #a855f7; }
+
+footer {
+  text-align: center;
+  color: #555;
+  font-size: 12px;
+  padding: 40px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+</style>
+</head>
+<body>
+
+<h1>🧬 Hermes Agent · 人体架构蓝图</h1>
+<p class="subtitle">13 大系统 · 六书方法论为 DNA · 从头到脚的完整智能体</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot green"></div> 80-100% 已完成</div>
+  <div class="legend-item"><div class="legend-dot yellow"></div> 40-60% 部分完成</div>
+  <div class="legend-item"><div class="legend-dot red"></div> 0-20% 缺失/待建</div>
+  <div class="legend-item"><div class="legend-dot purple"></div> 构建优先级高的缺失系统</div>
+</div>
+
+<div class="section-title">🔝 头部 · 认知与感知</div>
+<div class="system-grid">
+
+<div class="system-card" style="border-left-color: #a855f7;">
+  <div class="header">
+    <h2>🧠 1. 神经系统</h2>
+    <span class="status-badge p1">10% · ⚡最高优先</span>
+  </div>
+  <div class="organs">🧠 前额叶 · 小脑 · 脊髓 · 神经网络</div>
+  <div class="desc">"思考什么、如何思考" — 元认知层、本质判断、快/慢决策、执行协调</div>
+  <div class="subsystems">
+    <span>元认知层</span><span>决策引擎</span><span>执行协调</span><span>信号网络</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-1"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #22c55e;">
+  <div class="header">
+    <h2>👁️ 12. 感觉系统</h2>
+    <span class="status-badge ps">75% · 完善</span>
+  </div>
+  <div class="organs">👁️ 眼 · 👂 耳 · 👃 鼻 · ✋ 肤</div>
+  <div class="desc">"感知外部世界" — 视觉阅读、听觉监听、代码嗅觉、系统触觉</div>
+  <div class="subsystems">
+    <span>视觉 read_file</span><span>视觉 vision</span><span>听觉 日志</span><span>嗅觉 代码味道</span><span>触觉 资源</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-7"></div></div>
+</div>
+
+</div>
+
+<div class="section-title">🫃 躯干 · 核心运行系统</div>
+<div class="system-grid">
+
+<div class="system-card" style="border-left-color: #ef4444;">
+  <div class="header">
+    <h2>❤️ 2. 循环系统</h2>
+    <span class="status-badge p3">60% · 中等</span>
+  </div>
+  <div class="organs">❤️ 心脏 · 🫁 血管 · 🩸 血液</div>
+  <div class="desc">"信息的流动与供给" — L0血液（提示词）、L1组织液（记忆）、L2骨骼（技能）</div>
+  <div class="subsystems">
+    <span>L0 血液</span><span>L1 组织液</span><span>L2 骨骼储</span><span>心脏节律</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-6"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #22c55e;">
+  <div class="header">
+    <h2>🫁 3. 呼吸系统</h2>
+    <span class="status-badge ps">80% · 完善</span>
+  </div>
+  <div class="organs">👃 鼻 · 🫁 肺 · 膈肌</div>
+  <div class="desc">"与外部世界交换信息" — 吸气（搜索/读取）/呼气（输出/发送）/屏息控制</div>
+  <div class="subsystems">
+    <span>吸气 web_search</span><span>吸气 read_file</span><span>呼气 send_message</span><span>屏息控制</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-8"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #f59e0b;">
+  <div class="header">
+    <h2>🫃 4. 消化系统</h2>
+    <span class="status-badge p2">20% · 待建</span>
+  </div>
+  <div class="organs">👄 口 · 胃 · 小肠 · 肝</div>
+  <div class="desc">"消化信息、提取营养" — 原始数据→结构化→知识沉淀</div>
+  <div class="subsystems">
+    <span>摄入</span><span>去噪</span><span>提炼</span><span>吸收→memory</span><span>排泄</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-2"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #ef4444;">
+  <div class="header">
+    <h2>🫘 5. 泌尿系统</h2>
+    <span class="status-badge p1">5% · ⚡高优先</span>
+  </div>
+  <div class="organs">🫘 肾 · 输尿管 · 膀胱</div>
+  <div class="desc">"过滤废物、维持平衡" — 输出过滤器、缓存清理、垃圾丢弃、重复去重</div>
+  <div class="subsystems">
+    <span>输出过滤</span><span>缓存清理</span><span>垃圾丢弃</span><span>重复去重</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-1"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #f59e0b;">
+  <div class="header">
+    <h2>🛡️ 6. 免疫系统</h2>
+    <span class="status-badge p3">50% · 中等</span>
+  </div>
+  <div class="organs">🫘 脾 · 淋巴结 · 🦴 骨髓 · 抗体</div>
+  <div class="desc">"防御错误、保障质量、自我修复" — diff_review、Phoenix熔断、抗体库</div>
+  <div class="subsystems">
+    <span>先天免疫 diff_review</span><span>后天免疫 Phoenix</span><span>抗体库</span><span>愈合</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-5"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #a855f7;">
+  <div class="header">
+    <h2>🔬 7. 内分泌系统</h2>
+    <span class="status-badge p1">0% · ⚡高优先</span>
+  </div>
+  <div class="organs">🦋 甲状腺 · 🩺 肾上腺 · 🧠 垂体</div>
+  <div class="desc">"调节状态、控制节律" — 模式切换（专注/浏览/休息/紧急）、能量分配</div>
+  <div class="subsystems">
+    <span>专注模式</span><span>浏览模式</span><span>休息模式</span><span>紧急模式</span><span>节律控制</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-1"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #f59e0b;">
+  <div class="header">
+    <h2>🧬 8. 生殖系统</h2>
+    <span class="status-badge p3">60% · 中等</span>
+  </div>
+  <div class="organs">🧬 DNA/RNA · 性腺</div>
+  <div class="desc">"知识的繁衍与创新" — 创建技能、生成代码、沉淀经验</div>
+  <div class="subsystems">
+    <span>skill创建</span><span>skill优化</span><span>创新组合</span><span>遗传筛选</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-6"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #ef4444;">
+  <div class="header">
+    <h2>🫁 13. 淋巴系统</h2>
+    <span class="status-badge p1">5% · ⚡高优先</span>
+  </div>
+  <div class="organs">💧 淋巴管 · 淋巴结 · 脾</div>
+  <div class="desc">"废物回收、系统维护" — 中间产物清理、缓存维护、日志轮转、大扫除</div>
+  <div class="subsystems">
+    <span>中间清理</span><span>缓存维护</span><span>日志轮转</span><span>大扫除</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-1"></div></div>
+</div>
+
+</div>
+
+<div class="section-title">💪 四肢+骨架 · 支撑与行动</div>
+<div class="system-grid">
+
+<div class="system-card" style="border-left-color: #f59e0b;">
+  <div class="header">
+    <h2>🦴 9. 骨骼系统</h2>
+    <span class="status-badge p3">40% · 待建</span>
+  </div>
+  <div class="organs">🦴 骨 · 关节 · 软骨</div>
+  <div class="desc">"架构框架、规范约束" — 六书方法论、config体系、安全边界、扩展点</div>
+  <div class="subsystems">
+    <span>方法论框架</span><span>配置体系</span><span>安全保护</span><span>扩展关节</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-4"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #22c55e;">
+  <div class="header">
+    <h2>💪 10. 肌肉系统</h2>
+    <span class="status-badge ps">80% · 完善</span>
+  </div>
+  <div class="organs">💪 骨骼肌 · 平滑肌 · 心肌</div>
+  <div class="desc">"产生行动、执行操作" — 工具调用（terminal/write_file/patch）、自动操作</div>
+  <div class="subsystems">
+    <span>主动调用</span><span>自动 cron</span><span>核心心跳</span><span>肌肉记忆</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-8"></div></div>
+</div>
+
+<div class="system-card" style="border-left-color: #22c55e;">
+  <div class="header">
+    <h2>🧴 11. 皮肤系统</h2>
+    <span class="status-badge ps">60% · 完善</span>
+  </div>
+  <div class="organs">🧴 皮肤 · 毛发 · 汗腺 · 感觉神经</div>
+  <div class="desc">"与用户接触的界面" — 沟通风格、输出格式、温度调节、用户反馈接收</div>
+  <div class="subsystems">
+    <span>输出格式</span><span>沟通风格</span><span>温度调节</span><span>用户反馈</span>
+  </div>
+  <div class="heatbar"><div class="heatbar-fill heat-6"></div></div>
+</div>
+
+</div>
+
+<div class="section-title">🔄 系统间连接路径</div>
+
+<div class="connection-diagram">                    ┌──────────────────────────────────────────────────┐
+                    │      11. 🧴 <span class="highlight">皮肤系统</span> — 用户接触层                    │
+                    │       接收输入 → 传给神经系统                              │
+                    └───────────────────────┬──────────────────────────────────┘
+                                            │
+                                            ▼
+                    ┌──────────────────────────────────────────────────┐
+                    │      1. 🧠 <span class="hl-brain">神经系统</span> — 大脑层                             │
+                    │   ├─ 信号网络 → 唤醒各系统                          │
+                    │   ├─ 元认知 → 本质判断（值得做吗？）                 │
+                    │   ├─ 决策引擎 → 快/慢选择                           │
+                    │   └─ 小脑 → 执行协调                               │
+                    └──────┬──────┬──────┬──────┬──────────────────────┘
+                           │      │      │      │
+                    ┌──────┘      │      │      └──────────┐
+                    ▼             ▼      ▼                  ▼
+              2. ❤️ 循环     3. 🫁 呼吸   12. 👁️ 感觉   7. 🔬 内分泌
+               记忆供给      信息交换      采集数据        调节模式
+              信息流通       屏息控制      五感输入        分配能量
+                    └──────┬──┴───┐      │                  │
+                           │      │      │                  │
+                           ▼      ▼      ▼                  │
+                    ┌──────────────────────────────┐        │
+                    │       4. 🫃 <span class="hl-filter">消化系统</span>      │◄───────┘
+                    │   摄入 → 去噪 → 提炼 → 吸收   │
+                    └────────┬─────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────────────────┐
+                    │  8. 🧬 <span class="highlight">生殖系统</span> ← 新技能诞生       │
+                    │  DNA → skill / 创新组合       │
+                    └────────┬─────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────────────────┐
+                    │  9. 🦴 <span class="highlight">骨骼系统</span> — 框架约束         │
+                    │  六书方法论 · config · 安全    │
+                    └────────┬─────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────────────────┐
+                    │  10. 💪 <span class="highlight">肌肉系统</span> — 执行行动        │
+                    │  工具调用 · 力量输出           │
+                    └────────┬─────────────────────┘
+                             │
+                    ┌────────┴─────────────────────┐
+                    │    ← 输出 →                    │
+                    ▼                               ▼
+             6. 🛡️ <span class="hl-filter">免疫系统</span>     5. 🫘 <span class="hl-filter">泌尿系统</span>
+               质量保障 ←──────── 过滤排泄
+               错误防护           平衡维持
+                      13. 🫁 淋巴系统
+                          垃圾清理 · 系统维护</div>
+
+<footer>
+  Hermes Agent 人体架构蓝图 v2 · 2026-05-15<br>
+  六书方法论为生命哲学 DNA · 13系统完整性设计
+</footer>
+
+</body>
+</html>

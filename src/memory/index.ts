@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { v4 as uuid } from 'uuid';
 import { writeNote, searchNotes, ensureVault, getAllNoteTitles, vaultPath, hybridSearch, rebuildVectorCache } from './obsidian';
+import { LiteMemory } from './lite-memory';
 
 interface Message {
   id: string;
@@ -79,10 +80,12 @@ process.on('exit', () => {
 export class MemoryStore {
   private data: MemoryFile;
   private currentConvId: string;
+  public liteMemory: LiteMemory;
 
   constructor() {
     this.data = load();
     this.currentConvId = this.data.conversations[0]?.id || this.createConversation('default');
+    this.liteMemory = new LiteMemory();
   }
 
   createConversation(name: string): string {

@@ -131,6 +131,11 @@ export class MemoryStore {
     });
     conv.updated = Date.now();
     save(this.data);
+    // 同步写入向量记忆
+    if (content.length > 20) {
+      const category = role === 'user' ? 'preference' as const : 'experience' as const;
+      this.liteMemory.add(content.substring(0, 500), category, role);
+    }
   }
 
   getRecentMessages(count = 20): { role: 'user' | 'assistant' | 'system'; content: string }[] {

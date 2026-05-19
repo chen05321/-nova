@@ -111,7 +111,7 @@ ARGS: {"参数": "值"}
         fullResponse = '';
         await new Promise<void>((resolveStream) => {
           const timer = setTimeout(() => { streamFailed = true; resolveStream(); }, 90000);
-          const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+          const msgs = this.conversationHistory.slice(-50).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
           const bias = this.calculateHormoneBias();
           adapter.chatStream(msgs, (chunk, done, isReasoning) => {
             clearTimeout(timer);
@@ -200,7 +200,7 @@ ARGS: {"参数": "值"}
           fullResponse = '';
           await new Promise<void>((resolve) => {
             const timer = setTimeout(() => { streamFailed = true; resolve(); }, 60000);
-            const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+            const msgs = this.conversationHistory.slice(-50).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
             adapter.chatStream(msgs, (chunk, done, isReasoning) => {
               clearTimeout(timer);
               if (chunk) {

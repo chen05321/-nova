@@ -114,10 +114,10 @@ ARGS: {"参数": "值"}
           const resetChunkWatchdog = () => {
             clearTimeout(chunkTimer);
             chunkTimer = setTimeout(() => {
-              this.log('🚨 大模型流式输出超过 8 秒未响应，触发防假死熔断');
+              this.log('🚨 大模型流式输出超过 15 秒未响应，触发防假死熔断');
               this.bus.pulse('thought:chunk', { chunk: '\n⚠️ 响应超时，自动收尾...' }, this.name);
               resolveStream();
-            }, 8000);
+            }, 15000);
           };
           resetChunkWatchdog();
           const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
@@ -212,9 +212,9 @@ ARGS: {"参数": "值"}
             const resetChunkWatchdog = () => {
               clearTimeout(chunkTimer);
               chunkTimer = setTimeout(() => {
-                this.log('🚨 工具流 8 秒无响应，触发防假死熔断');
+                this.log('🚨 工具流 15 秒无响应，触发防假死熔断');
                 resolve();
-              }, 8000);
+              }, 15000);
             };
             resetChunkWatchdog();
             const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));

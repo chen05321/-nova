@@ -294,43 +294,21 @@ ARGS: {"参数": "值"}
   };
 
   private buildContextPrompt(): string {
-    const facts = this.memory.getFacts();
     const memories: string[] = [];
+
+    // 只注入最近 2 条学到的东西，不过载
     const learned = this.memory.getFacts('learned');
-    const skills = this.memory.getFacts('skill');
+    for (const f of learned.slice(-2)) memories.push(`📚 ${f.content}`);
 
-    for (const f of learned.slice(-5)) memories.push(`📚 ${f.content}`);
-    for (const f of skills.slice(-3)) memories.push(`⚡ ${f.content}`);
-    for (const f of facts.slice(0, 5)) {
-      if (!learned.includes(f) && !skills.includes(f)) memories.push(`- ${f.content}`);
-    }
-
-    // 已掌握技能 → 注入能力增强提示
+    // 技能效果最多 5 条
     const learnedSkills = this.memory.getFacts('skill').map(f => f.content.replace('[技能] ', '').split(':')[0].trim());
-    const activeEffects = learnedSkills.map(name => this.skillEffects[name] || `- 已掌握 "${name}" 相关知识，可应用于当前任务`);
-    if (activeEffects.length > 0) {
-      memories.push('🧠 已掌握技能经验:');
-      for (const e of activeEffects.slice(0, 10)) {
-        memories.push(`  ${e}`);
-      }
-    }
-
-    // 从 Obsidian 记忆库检索相关知识
-    try {
-      const vaultNotes = this.memory.searchVault('', 3);
-      if (vaultNotes.length > 0) {
-        memories.push('📔 记忆库笔记:');
-        for (const n of vaultNotes) {
-          memories.push(`  - [[${n.title}]]: ${n.snippet.substring(0, 120)}`);
-        }
-      }
-    } catch {}
+    const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean).slice(0, 5);
+    for (const e of activeEffects) memories.push(`⚡ ${e}`);
 
     const learnedBlock = memories.length > 0 ? `\n\n${memories.join('\n')}` : '';
     const wasteLevel = this.bus.wasteLevel;
-    let toxinNote = wasteLevel > 70 ? `\n[TOXIC: Waste ${wasteLevel}% — cognition degraded]` : '';
 
-    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}% | Waste: ${wasteLevel}%)${learnedBlock}${toxinNote}\n[Mode: ${this.bus.getEnergyMode().toUpperCase()}]`;
+    return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}%)${learnedBlock}`;
   }
 
   private calculateHormoneBias() {

@@ -469,6 +469,17 @@ export class NovaAgent {
         }
       }
     });
+    // 内存管理：每小时执行一次清理
+    setInterval(() => {
+      const usage = process.memoryUsage();
+      const heapMB = Math.round(usage.heapUsed / 1024 / 1024);
+      if (heapMB > 200) {
+        console.log(`[内存管理] 堆内存 ${heapMB}MB，触发清理`);
+        global.gc?.();
+      }
+      console.log(`[内存管理] RSS:${Math.round(usage.rss/1024/1024)}MB 堆:${heapMB}MB`);
+    }, 3600000);
+
     this.isRunning = true;
     this.bus.pulse('system:boot-complete', { stage: this.stage }, 'NovaAgent');
     console.log(`\n[超体] ❤ Boot complete. Stage: ${this.stage} | Energy: ${this.bus.getEnergyStats().percent}%`);

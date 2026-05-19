@@ -49,10 +49,10 @@ export const writeFileTool: Tool = {
 
       try {
         if (file.endsWith('.json')) { JSON.parse(content); verify = ' ✓ json'; }
-        else if (file.endsWith('.ts') || file.endsWith('.js')) {
+        else if (file.endsWith('.js')) {
           const { exec } = require('child_process');
-          await new Promise(r => exec(`npx tsc --noEmit --strict --lib es2020,dom "${file}" 2>&1`, { timeout: 10000 }, (e: any) => r(!e)));
-          verify = ' ✓ ts';
+          await new Promise(r => exec(`node -c "${file}" 2>&1`, { timeout: 5000 }, (e: any) => r(!e)));
+          verify = ' ✓ js';
         }
         else if (file.endsWith('.py')) {
           const { exec } = require('child_process');

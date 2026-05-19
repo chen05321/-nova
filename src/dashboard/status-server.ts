@@ -92,6 +92,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           stage: st.stage, uptime: st.uptime, actions: st.actionCount,
           energy, heart, model: modelName, role: roleName,
           learning: agent.learning.getStats(),
+          reproductive: (agent as any).reproductive?.getBiometrics?.()?.metadata || { generation: 1 },
           waste: { total: waste.total, h: waste.hallucinationWaste, e: waste.errorWaste, s: waste.staleKnowledge },
           systems: st.biometrics.map(b => ({ name: b.system.replace('System', ''), status: b.status, load: Math.round(b.load * 100) })),
           upgrades: agent.Upgrades.map((u: any) => u.name),
@@ -160,13 +161,9 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           } catch {}
         };
         bus.on('thought:chunk', onChunk);
-        bus.on('thought:perceived', onPerceived);
-        bus.on('learning:cycle', onLearning);
         bus.on('hormone:shift', onHormoneShift);
         req.on('close', () => {
           bus.removeListener('thought:chunk', onChunk);
-          bus.removeListener('thought:perceived', onPerceived);
-          bus.removeListener('learning:cycle', onLearning);
           bus.removeListener('hormone:shift', onHormoneShift);
         });
         return;

@@ -1,481 +1,443 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NOVA · 神经看板</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova (超体) - 全息控制舱 v5.5 终极双向防爆版</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0a0a12; --panel:#111120; --border:#1e1e3a;
-  --cyan:#00f0ff; --pink:#ff2d95; --green:#00ff88; --yellow:#ffd700;
-  --orange:#ff6600; --purple:#b44dff; --red:#ff3355;
-  --text:#c0c0d0; --dim:#606080; --glow:0 0 6px;
-}
-body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;overflow-x:hidden}
-.glow{text-shadow:0 0 8px rgba(0,240,255,0.4)}
-/* ── Layout ── */
-.app{display:grid;grid-template-columns:1fr 320px;grid-template-rows:52px 160px 1fr;height:100vh;gap:1px;background:var(--border)}
-.header{grid-column:1/3;display:flex;align-items:center;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--cyan);gap:12px}
-.header .logo{font-size:18px;font-weight:700;color:var(--cyan)}
-.header .logo span{color:var(--pink)}
-.header .badge{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--cyan);color:#000;font-weight:700}
-.header .badge.off{background:var(--dim);color:var(--text)}
-.header .status-line{margin-left:auto;font-size:12px;display:flex;gap:16px;align-items:center}
-.header .status-line .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
-.dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
-.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
-/* ── Heartbeat Wave ── */
-.hb-panel{grid-column:1/3;display:flex;background:var(--panel);padding:0 12px;gap:12px;border-bottom:1px solid var(--border)}
-.hb-chart{flex:1;height:158px;position:relative}
-.hb-chart svg{width:100%;height:100%}
-.hb-stats{width:280px;display:flex;flex-direction:column;justify-content:center;gap:4px;font-size:12px;padding:8px 0}
-.hb-stats .row{display:flex;justify-content:space-between;align-items:center}
-.hb-stats .val{font-weight:700;min-width:50px;text-align:right}
-.hb-stats .bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;flex:1;margin:0 8px}
-.hb-stats .bar-fill{height:100%;border-radius:3px;transition:width 0.3s}
-.metabar{display:flex;gap:4px;padding:2px 0;align-items:center;font-size:11px}
-.metabar .tag{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:2px}
-/* ── Main Grid ── */
-.main{display:flex;flex-direction:column;overflow-y:auto;padding:8px;gap:8px;background:var(--bg)}
-.side{overflow-y:auto;padding:8px;gap:8px;display:flex;flex-direction:column;background:var(--bg)}
-/* ── Panels ── */
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px}
-.panel-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:6px;display:flex;justify-content:space-between}
-/* ── Graph ── */
-.graph-wrap{height:280px;position:relative;overflow:hidden}
-.graph-wrap svg{width:100%;height:100%}
-/* ── Chat ── */
-.chat-area{display:flex;flex-direction:column;flex:1;min-height:200px}
-.chat-msgs{flex:1;overflow-y:auto;padding:4px;font-size:12px;display:flex;flex-direction:column;gap:4px;max-height:300px}
-.chat-msgs .msg{padding:4px 8px;border-radius:4px;line-height:1.4}
-.chat-msgs .msg.user{background:rgba(0,240,255,0.08);border-left:2px solid var(--cyan)}
-.chat-msgs .msg.nova{background:rgba(255,45,149,0.08);border-left:2px solid var(--pink)}
-.chat-msgs .msg.system{background:rgba(0,255,136,0.06);border-left:2px solid var(--green)}
-.chat-msgs .msg .sender{font-size:10px;font-weight:700;opacity:0.6}
-.chat-input-wrap{display:flex;gap:4px;margin-top:4px}
-.chat-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;border-radius:4px;outline:none}
-.chat-input:focus{border-color:var(--cyan)}
-.chat-send{background:var(--cyan);color:#000;border:none;padding:6px 12px;font-family:inherit;font-weight:700;border-radius:4px;cursor:pointer;font-size:12px}
-.chat-send:hover{box-shadow:0 0 10px var(--cyan)}
-/* ── Hormones ── */
-.hormone-list{display:flex;flex-direction:column;gap:3px}
-.hormone-row{display:flex;align-items:center;gap:6px;font-size:11px}
-.hormone-row .name{width:70px;font-weight:700;text-align:right}
-.hormone-row .bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
-.hormone-row .bar-fill{height:100%;border-radius:4px;transition:width 0.5s,background 0.5s}
-.hormone-row .val{width:32px;text-align:right}
-/* ── Attention ── */
-.attn-list{display:flex;flex-wrap:wrap;gap:3px}
-.attn-tag{font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.2)}
-/* ── Ticker ── */
-.ticker{overflow:hidden;height:20px;position:relative;background:rgba(0,0,0,0.3);border-radius:4px;padding:0 8px;font-size:11px;line-height:20px;white-space:nowrap}
-.ticker-inner{animation:tick 30s linear infinite;display:inline-block}
-@keyframes tick{0%{transform:translateX(100%)}100%{transform:translateX(-200%)}}
-/* ── EKG line ── */
-.ekg-line{stroke:var(--cyan);stroke-width:2;fill:none;filter:drop-shadow(0 0 4px var(--cyan))}
-.ekg-grid line{stroke:var(--border);stroke-width:0.5}
-.ekg-area{fill:url(#ekg-grad);opacity:0.15}
-/* ── Scrollbar ── */
+:root[data-theme="dark"]{--bg-main:#05070c;--panel-bg:rgba(15,23,42,0.4);--border-color:rgba(51,65,85,0.5);--glow-blue:rgba(59,130,246,0.15);--text-primary:#f1f5f9}
+:root[data-theme="cyberpunk"]{--bg-main:#0c0214;--panel-bg:rgba(26,0,46,0.5);--border-color:rgba(236,72,153,0.4);--glow-blue:rgba(236,72,153,0.2);--text-primary:#fdf2ff}
+:root[data-theme="light"]{--bg-main:#f8fafc;--panel-bg:rgba(255,255,255,0.85);--border-color:rgba(226,232,240,1);--glow-blue:rgba(148,163,184,0.05);--text-primary:#0f172a}
+/* 🌟 极致加固：锁定视窗高宽上限，彻底断绝一切方向上的溢出和位移 */
+body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s ease;height:100vh !important;max-height:100vh !important;overflow:hidden !important;}
+.panel-base{background:var(--panel-bg);border:1px solid var(--border-color);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:all 0.3s ease}
+.glow-active{box-shadow:0 0 25px var(--glow-blue)}
 ::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-/* ── Responsive ── */
-@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto}.side{max-height:400px}}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+@keyframes bio-pulse{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.08);opacity:1}}
+.heart-pulse{animation:bio-pulse 1s infinite ease-in-out}
+.bubble-text { word-break: break-all !important; word-wrap: break-word !important; white-space: pre-wrap !important; }
+
+/* 🧬 激素实时弹跳闪烁引擎 */
+@keyframes hormone-bounce-pulse {
+  0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0rem rgba(0, 255, 242, 0)); }
+  20% { transform: scale(1.08) translateY(-2px); filter: brightness(1.5) drop-shadow(0 0 0.8rem var(--pulse-color, #00fff2)); }
+  100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0rem rgba(0, 255, 242, 0)); }
+}
+.hormone-spike-active { animation: hormone-bounce-pulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275); transition: all 0.2s ease; }
 </style>
 </head>
-<body>
-<div class="app">
-  <!-- Header -->
-  <div class="header">
-    <div class="logo">◆ <span>NOVA</span></div>
-    <div class="badge" id="status-badge">启动中</div>
-    <div class="status-line">
-      <span><span class="dot green" id="running-dot"></span><span id="running-text">运行中</span></span>
-      <span>⚡ <span id="energy-val">50</span>%</span>
-      <span>❤ <span id="bpm-val">60</span> BPM</span>
-      <span>🧠 <span id="wisdom-val">0</span></span>
-      <span>🗑 <span id="waste-val">0</span></span>
-      <span id="stage-val">NEWBORN</span>
-    </div>
-  </div>
+<body class="p-4 flex flex-col gap-4 select-none text-sm">
 
-  <!-- Heartbeat Wave + Hormone Mini -->
-  <div class="hb-panel">
-    <div class="hb-chart"><canvas id="ekg-canvas" width="800" height="160" style="width:100%;height:160px"></canvas></div>
-    <div class="hb-stats">
-      <div class="row"><span>❤ 心率</span><div class="bar"><div class="bar-fill" id="bpm-bar" style="width:60%;background:var(--cyan)"></div></div><span class="val" id="bpm-val2">60</span></div>
-      <div class="row"><span>⚡ 能量</span><div class="bar"><div class="bar-fill" id="energy-bar" style="width:50%;background:var(--green)"></div></div><span class="val" id="energy-val2">50</span></div>
-      <div class="row"><span>🗑 废物</span><div class="bar"><div class="bar-fill" id="waste-bar" style="width:0%;background:var(--orange)"></div></div><span class="val" id="waste-val2">0</span></div>
-      <div class="row"><span>🌱 阶段</span><span class="val" id="stage-val2" style="color:var(--cyan)">NEWBORN</span></div>
-      <div class="row"><span>🧬 智慧</span><span class="val" id="wisdom-val2" style="color:var(--purple)">0</span></div>
-      <div class="ticker" id="ticker"><span class="ticker-inner" id="ticker-text">◆ NOVA 超体系统监控 v2.0 ◆ 准备就绪</span></div>
-    </div>
-  </div>
+<header class="panel-base px-6 py-3 rounded-2xl flex justify-between items-center shadow-lg shrink-0">
+<div class="flex items-center gap-4">
+<div id="heart-icon" class="text-2xl text-emerald-400 heart-pulse">❤</div>
+<div><h1 class="text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">NOVA CONTROL WORKSTATION</h1>
+<p class="text-xs text-slate-500 font-mono">Uptime: <span id="uptime">00:00:00</span> | Phase: <span id="growth-stage" class="text-teal-400 font-bold">NEWBORN</span></p></div></div>
+<div class="flex items-center gap-6 font-mono text-xs">
+<div class="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-xl border border-slate-800">
+<span class="text-slate-500 text-[11px]">🧠 模式:</span>
+<select id="model-override" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-blue-400 font-bold focus:outline-none cursor-pointer">
+<option value="auto">🤖 自动</option><option value="fast">⚡ Fast</option><option value="reflective">🌿 Reflective</option><option value="deep">🔮 Deep</option></select></div>
+<div class="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-xl border border-slate-800">
+<span class="text-slate-500 text-[11px]">🎨 主题:</span>
+<select id="theme-switcher" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-purple-400 focus:outline-none cursor-pointer">
+<option value="dark">🌌 深海</option><option value="cyberpunk">🔮 赛博</option><option value="light">🥼 白实验室</option></select></div>
+<div class="bg-black/30 px-4 py-2 rounded-xl border border-slate-800 text-center"><span class="text-slate-500 text-[10px] block uppercase">智慧</span><span id="wisdom-score" class="text-amber-400 font-bold text-sm">0</span></div></div></header>
 
-  <!-- Main -->
-  <div class="main">
-    <!-- Ticker row -->
-    <div class="panel" style="padding:4px 8px">
-      <div class="ticker" style="height:18px;line-height:18px;font-size:10px;background:transparent">
-        <span class="ticker-inner" id="ticker-main" style="animation-duration:20s">等待系统数据...</span>
-      </div>
-    </div>
+<main class="flex gap-4 flex-1 overflow-hidden w-full min-h-0">
+  
+<section id="left-sidebar" class="w-80 flex flex-col gap-4 overflow-y-auto pr-1 transition-all duration-300 ease-in-out shrink-0 min-h-0">
+<div class="panel-base p-4 rounded-2xl bg-gradient-to-br from-slate-900/50 to-slate-950/40 border-blue-500/20">
+<div class="flex justify-between items-center mb-2.5">
+<h2 class="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider flex items-center gap-1">🔌 全球模型脑桥接入</h2>
+<button id="btn-opencode-import" type="button" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono transition-all">📥 自动导入</button>
+</div>
+<form id="config-llm-form" class="space-y-2 font-mono text-xs text-slate-300">
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">服务通道 (Provider)</label>
+<select id="cfg-provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
+<option value="deepseek">🤖 官方 DeepSeek 渠道</option><option value="gemini">♊ Google Gemini (兼容层)</option><option value="qwen">🇨🇳 阿里云 通义千问 (Qwen)</option><option value="moonshot">🇨🇳 月之暗面 (Kimi AI)</option><option value="openai">🇺🇸 OpenAI 官方直连网</option><option value="custom">🌐 其它跨网中转 (OneAPI)</option></select></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">网关地址 (Base URL)</label>
+<input type="text" id="cfg-baseurl" placeholder="https://api.deepseek.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500" /></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">模型标识符 (Model ID)</label>
+<input type="text" id="cfg-model" placeholder="deepseek-v4-flash" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500" /></div>
+<div><label class="text-slate-500 text-[9px] block mb-0.5 uppercase">核心密钥密匙 (API Key)</label>
+<input type="password" id="cfg-apikey" placeholder="sk-........................" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-100 focus:outline-none focus:border-blue-500" /></div>
+<button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white font-bold py-1.5 rounded-xl transition-all active:scale-95 text-center uppercase tracking-wider text-[11px] mt-1 shadow-md">⚡ 烧录核心 · 重组大脑</button>
+</form></div>
 
-    <!-- System Graph -->
-    <div class="panel">
-      <div class="panel-title"><span>🕸 系统关联图</span><span id="graph-info">系统: 0 | 链接: 0</span></div>
-      <div class="graph-wrap"><svg id="graph-svg" viewBox="0 0 740 280"></svg></div>
-    </div>
+<div class="panel-base p-4 rounded-2xl border-amber-500/30">
+<h2 class="text-xs font-bold text-amber-400 uppercase font-mono tracking-wider mb-3">⚡ 应急干预</h2>
+<div class="grid grid-cols-2 gap-2 font-mono text-xs">
+<button id="btn-force-sleep" class="bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">💤 休眠</button>
+<button id="btn-force-flush" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-700/50 p-2 rounded-xl text-center transition-all cursor-pointer active:scale-95">🧼 排毒</button></div></div>
 
-    <!-- Chat -->
-    <div class="panel chat-area">
-      <div class="panel-title"><span>💬 神经对话</span><span style="color:var(--dim);font-size:10px">Enter 发送</span></div>
-      <div class="chat-msgs" id="chat-msgs">
-        <div class="msg system"><div class="sender">◆ SYSTEM</div>NOVA 生物系统已就绪，输入消息开始对话。</div>
-      </div>
-      <div class="chat-input-wrap">
-        <input class="chat-input" id="chat-input" placeholder="输入消息..." autofocus>
-        <button class="chat-send" id="chat-send">发送</button>
-      </div>
-    </div>
-  </div>
+<div class="panel-base p-4 rounded-2xl">
+<div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">能量</h2><span id="energy-mode" class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-300 font-mono rounded border uppercase">Normal</span></div>
+<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width:50%"></div></div>
+<div class="flex justify-between text-xs font-mono text-slate-500"><span>心率: <span id="heart-rate" class="text-slate-300">60</span> bpm</span><span>债务: <span id="energy-debt" class="text-red-400">0</span></span></div></div>
 
-  <!-- Sidebar -->
-  <div class="side">
-    <!-- Hormones -->
-    <div class="panel">
-      <div class="panel-title"><span>🧪 激素水平</span><span id="hormone-ts" style="font-size:10px;color:var(--dim)">—</span></div>
-      <div class="hormone-list" id="hormone-list">
-        <div class="hormone-row"><span class="name">肾上腺素</span><div class="bar"><div class="bar-fill" style="width:10%;background:var(--red)"></div></div><span class="val" id="h-adrenaline">0.1</span></div>
-        <div class="hormone-row"><span class="name">皮质醇</span><div class="bar"><div class="bar-fill" style="width:20%;background:var(--orange)"></div></div><span class="val" id="h-cortisol">0.2</span></div>
-        <div class="hormone-row"><span class="name">多巴胺</span><div class="bar"><div class="bar-fill" style="width:40%;background:var(--yellow)"></div></div><span class="val" id="h-dopamine">0.4</span></div>
-        <div class="hormone-row"><span class="name">血清素</span><div class="bar"><div class="bar-fill" style="width:50%;background:var(--green)"></div></div><span class="val" id="h-serotonin">0.5</span></div>
-        <div class="hormone-row"><span class="name">催产素</span><div class="bar"><div class="bar-fill" style="width:30%;background:var(--purple)"></div></div><span class="val" id="h-oxytocin">0.3</span></div>
-      </div>
-    </div>
+<div class="panel-base p-4 rounded-2xl"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">呼吸 (Token)</h2>
+<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="token-bar" class="h-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300" style="width:100%"></div></div>
+<div class="flex justify-between text-xs font-mono text-slate-500"><span id="token-status" class="text-slate-300">10000/10000</span><span id="breath-lock" class="text-emerald-500 font-bold">正常</span></div></div>
 
-    <!-- Attention -->
-    <div class="panel">
-      <div class="panel-title"><span>🎯 注意力分配</span></div>
-      <div class="attn-list" id="attn-list"></div>
-    </div>
+<div class="panel-base p-4 rounded-2xl flex-1 flex flex-col justify-between min-h-0">
+<h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">激素</h2>
+<div class="space-y-3 font-mono text-xs">
+<div data-hormone="adrenaline"><div class="flex justify-between mb-0.5"><span class="text-slate-400">肾上腺素</span><span id="h-adrenaline">0.10</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-adrenaline" class="h-full bg-rose-500 transition-all duration-500" style="width:10%"></div></div></div>
+<div data-hormone="cortisol"><div class="flex justify-between mb-0.5"><span class="text-slate-400">皮质醇</span><span id="h-cortisol">0.20</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-cortisol" class="h-full bg-amber-500 transition-all duration-500" style="width:20%"></div></div></div>
+<div data-hormone="dopamine"><div class="flex justify-between mb-0.5"><span class="text-slate-400">多巴胺</span><span id="h-dopamine">0.50</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-dopamine" class="h-full bg-teal-400 transition-all duration-500" style="width:50%"></div></div></div></div>
+<div class="mt-4 pt-2 border-t border-slate-800/60 text-xs font-mono text-slate-500">毒素: <span id="toxin-level" class="text-orange-400 font-bold">0%</span></div></div></section>
 
-    <!-- Knowledge Stream -->
-    <div class="panel" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
-      <div class="panel-title"><span>📋 知识流</span><span id="kflow-count">0</span></div>
-      <div id="kflow-list" style="flex:1;overflow-y:auto;font-size:11px;display:flex;flex-direction:column;gap:3px"></div>
-    </div>
+<section class="flex-1 flex flex-col panel-base rounded-2xl overflow-hidden glow-active relative min-w-0 min-h-0">
+<div class="bg-black/30 border-b border-slate-800 px-4 py-2.5 flex justify-between items-center font-mono text-xs text-slate-400 z-20 shrink-0">
+<div class="flex items-center gap-2">
+  <button id="btn-toggle-left" type="button" class="bg-slate-800 hover:bg-slate-700 text-teal-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">⚙ 舱壁面板</button>
+  <button id="btn-toggle-sidebar" type="button" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">📁 历史会话</button>
+  <button id="btn-new-session" type="button" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">➕ 新会话</button>
+  <button id="btn-toggle-right" type="button" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1 rounded font-sans font-bold transition-all cursor-pointer">📊 任务肢体</button>
+  <div class="flex items-center gap-2 ml-2"><span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" id="state-dot"></span><span>负载: <span id="cognitive-load" class="text-slate-200">0.0</span></span></div>
+</div>
+<div>大脑皮盘: <span id="current-model-name" class="text-blue-400 font-bold">deepseek-v4-flash</span></div></div>
+
+<div class="bg-slate-950/80 px-4 py-1.5 border-b border-black text-[11px] font-mono text-cyan-400/80 truncate shrink-0">🧠 <span id="thought-chunk-live" class="text-slate-300 italic">流式思维感知就绪...</span></div>
+
+<div class="flex flex-1 overflow-hidden relative min-w-0">
+  <div id="sessions-sidebar" class="w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0"></div>
+  
+  <div id="chat-viewport" class="flex-1 p-5 overflow-y-auto space-y-4 text-sm leading-relaxed min-w-0">
+    <div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="bg-slate-900/60 border border-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-slate-300 bubble-text">控制舱空间锁定完毕。弹性视窗防横向爆炸协议已生效。</div></div>
   </div>
 </div>
 
+<div class="p-3 bg-black/20 border-t border-slate-800 shrink-0 w-full z-10">
+  <form id="chat-form" class="flex gap-2">
+    <input type="text" id="chat-input" autocomplete="off" placeholder="输入消息传导至超体中枢..." class="flex-1 bg-black/40 border border-slate-800 px-4 py-2.5 rounded-xl text-slate-100 focus:outline-none focus:border-blue-500 transition-all text-sm">
+    <button type="submit" class="bg-gradient-to-r from-blue-600 to-teal-500 text-white font-mono text-xs font-bold px-6 py-2.5 rounded-xl active:scale-95 transition-all cursor-pointer">发送</button>
+  </form>
+</div>
+</section>
+
+<section id="right-sidebar" class="w-80 flex flex-col panel-base rounded-2xl overflow-hidden shrink-0 transition-all duration-300 ease-in-out">
+<div class="grid grid-cols-3 bg-black/40 border-b border-slate-800 font-mono text-[11px] text-center shrink-0">
+  <button id="tab-btn-tasks" class="py-3 border-b-2 border-cyan-500 text-cyan-400 font-bold transition-all cursor-pointer">📋 任务</button>
+  <button id="tab-btn-upgrades" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-all cursor-pointer">🧬 升级</button>
+  <button id="tab-btn-tools" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-all cursor-pointer">🛠 工具</button>
+</div>
+
+<div class="flex-1 p-3 overflow-y-auto flex flex-col gap-3">
+  <div id="panel-tasks" class="flex flex-col flex-1 gap-2">
+    <div class="flex justify-between items-center mb-1 font-mono">
+      <span class="text-slate-400 text-xs uppercase tracking-wider">客观任务序列</span>
+      <button id="btn-add-task" type="button" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 px-2 py-0.5 rounded font-mono transition-all cursor-pointer">＋ 指派新目标</button>
+    </div>
+    <div id="tasks-list" class="space-y-1.5 overflow-y-auto flex-1 pr-0.5 font-mono text-xs"></div>
+  </div>
+
+  <div id="panel-upgrades" class="hidden flex-1 flex flex-col gap-2">
+    <span class="text-slate-400 text-xs font-mono uppercase tracking-wider mb-1">生命体征优化芯片</span>
+    <div id="upgrade-shop" class="space-y-2 overflow-y-auto flex-1 pr-0.5"></div>
+  </div>
+
+  <div id="panel-tools" class="hidden flex-1 flex flex-col gap-2">
+    <span class="text-slate-400 text-xs font-mono uppercase tracking-wider mb-1">原子工具包成功率映射</span>
+    <div id="tools-grid" class="grid grid-cols-1 gap-2 overflow-y-auto content-start pr-0.5 py-0.5"></div>
+  </div>
+</div>
+</section></main>
+
 <script>
-const API = '';
-const HORMONE_COLORS = {adrenaline:'var(--red)',cortisol:'var(--orange)',dopamine:'var(--yellow)',serotonin:'var(--green)',oxytocin:'var(--purple)'};
-const HORMONE_NAMES = {adrenaline:'肾上腺素',cortisol:'皮质醇',dopamine:'多巴胺',serotonin:'血清素',oxytocin:'催产素'};
-const SYSTEM_COLORS = {
-  NervousSystem:'#00f0ff',ReproductiveSystem:'#ff2d95',KnowledgeCore:'#b44dff',
-  SelfLearningSystem:'#ffd700',DigestiveSystem:'#00ff88',UrinarySystem:'#ff6600',
-  ForagingSystem:'#8892b0',ImmuneSystem:'#ff3355',MusculoskeletalSystem:'#66ccff',
-  EndocrineSystem:'#ff66cc',RespiratorySystem:'#66ffcc'
+var cv=document.getElementById('chat-viewport'),cf=document.getElementById('chat-form'),ci=document.getElementById('chat-input'),tc=document.getElementById('thought-chunk-live'),ts=document.getElementById('theme-switcher'),mo=document.getElementById('model-override');
+var cp=document.getElementById('cfg-provider'),cb=document.getElementById('cfg-baseurl'),cm=document.getElementById('cfg-model'),ck=document.getElementById('cfg-apikey'),clf=document.getElementById('config-llm-form'),bo=document.getElementById('btn-opencode-import');
+var tList=document.getElementById('tasks-list'), bAddTask=document.getElementById('btn-add-task'), sSidebar=document.getElementById('sessions-sidebar'), bToggleSidebar=document.getElementById('btn-toggle-sidebar'), bToggleLeft=document.getElementById('btn-toggle-left'), lSidebar=document.getElementById('left-sidebar');
+var bToggleRight=document.getElementById('btn-toggle-right'), rSidebar=document.getElementById('right-sidebar');
+var bNewSession=document.getElementById('btn-new-session');
+var ab=null;
+
+// 右侧面板缩进
+var isRightOpen = true;
+bToggleRight.onclick = function() {
+  isRightOpen = !isRightOpen;
+  if(isRightOpen) {
+    rSidebar.className = "w-80 flex flex-col panel-base rounded-2xl overflow-hidden shrink-0 transition-all duration-300 ease-in-out";
+  } else {
+    rSidebar.className = "w-0 p-0 m-0 border-0 overflow-hidden shrink-0 transition-all duration-300 ease-in-out";
+  }
 };
 
-// ── EKG Canvas ──
-const EKG_POINTS = 400;
-let ekgData = [];
-// 预生成 PQRST 波型 (1个完整心跳周期, 60帧)
-const PQRST = [];
-for(let i=0;i<60;i++){
-  const t = i/60;
-  let v;
-  if(t < 0.02) v = 0;                              // 基线
-  else if(t < 0.10) v = -0.3 * Math.sin((t-0.02)/0.08*Math.PI*0.5);    // P 波
-  else if(t < 0.11) v = 0;                          // PR 段
-  else if(t < 0.14) v = -0.1;                       // 轻微下降
-  else if(t < 0.18) v = -0.1 - 1.0 * (t-0.14)/0.04; // R 峰急升
-  else if(t < 0.19) v = -1.1;                       // R 峰顶
-  else if(t < 0.21) v = -1.1 + 1.2 * (t-0.19)/0.02; // S 下探
-  else if(t < 0.22) v = 0.1;                        // S 底
-  else if(t < 0.26) v = 0.1 - 0.4 * (t-0.22)/0.04;  // ST 段
-  else if(t < 0.32) v = -0.3;                       // T 波起始
-  else if(t < 0.40) v = -0.3 - 0.5 * (t-0.32)/0.08; // T 波上升
-  else if(t < 0.44) v = -0.8;                       // T 波顶
-  else if(t < 0.50) v = -0.8 + 0.8 * (t-0.44)/0.06; // T 回落
-  else v = 0;
-  PQRST.push(v);
-}
-
-let ekgPhase = 0; // 相位 (0-60)
-const EKG_NOISE_MAG = 0.03;
-const EKG_MID = 80;
-const EKG_AMP = 50;
-
-function drawEKG(bpm, energy){
-  const canvas = document.getElementById('ekg-canvas');
-  if(!canvas || !canvas.getContext) return;
-  const ctx = canvas.getContext('2d');
-  const W=canvas.width, H=canvas.height;
-  ctx.clearRect(0,0,W,H);
-
-  // 网格
-  ctx.strokeStyle='rgba(0,240,255,0.06)';
-  ctx.lineWidth=0.5;
-  for(let x=0;x<W;x+=80){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for(let y=0;y<H;y+=32){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-
-  // 推进相位 (根据心率)
-  const phaseStep = Math.max(0.3, bpm/60 * 1.5);
-  ekgPhase = (ekgPhase + phaseStep) % 60;
-
-  // 记录当前值
-  const beatVal = EKG_MID + PQRST[Math.floor(ekgPhase)] * EKG_AMP * (0.8 + energy/100*0.4) + (Math.random()-0.5)*EKG_NOISE_MAG*EKG_AMP;
-  ekgData.push(beatVal);
-  if(ekgData.length > EKG_POINTS) ekgData.shift();
-
-  // 画波形线
-  ctx.beginPath();
-  for(let i=0;i<ekgData.length;i++){
-    const x = (i/EKG_POINTS)*W;
-    const y = ekgData[i];
-    if(i===0) ctx.moveTo(x,y);
-    else ctx.lineTo(x,y);
+// 左栏收放
+var isLeftOpen = true;
+bToggleLeft.onclick = function() {
+  isLeftOpen = !isLeftOpen;
+  if(isLeftOpen) {
+    lSidebar.className = "w-80 flex flex-col gap-4 overflow-y-auto pr-1 transition-all duration-300 ease-in-out shrink-0 min-h-0";
+  } else {
+    lSidebar.className = "w-0 p-0 m-0 border-0 overflow-hidden shrink-0 transition-all duration-300 ease-in-out";
   }
-  ctx.strokeStyle='#00f0ff';
-  ctx.lineWidth=2;
-  ctx.shadowColor='#00f0ff';
-  ctx.shadowBlur=8;
-  ctx.stroke();
-  ctx.shadowBlur=0;
+};
 
-  // 画填充面积
-  ctx.beginPath();
-  ctx.moveTo(0,H);
-  for(let i=0;i<ekgData.length;i++){
-    const x = (i/EKG_POINTS)*W;
-    ctx.lineTo(x, ekgData[i]);
+// 新建会话
+bNewSession.onclick = async function() {
+  try{await fetch('/api/session/new',{method:'POST'});}catch(e){}
+  cv.innerHTML = ''; ab = null;
+  syncChatHistory();
+  loadSessions();
+};
+
+// 内部左侧历史抽屉收放
+var isSidebarOpen = true;
+bToggleSidebar.onclick = function() {
+  isSidebarOpen = !isSidebarOpen;
+  if(isSidebarOpen) {
+    sSidebar.className = "w-40 border-r border-slate-800/40 bg-slate-950/40 flex flex-col p-2 gap-1.5 overflow-y-auto font-mono text-[11px] shrink-0 transition-all duration-300 ease-in-out min-w-0";
+  } else {
+    sSidebar.className = "w-0 border-r-0 p-0 m-0 overflow-hidden shrink-0 transition-all duration-300 ease-in-out min-w-0";
   }
-  ctx.lineTo(W,H);
-  ctx.closePath();
-  ctx.fillStyle='rgba(0,240,255,0.08)';
-  ctx.fill();
+};
 
-  // 发光点 (最新心跳)
-  const lastX = W;
-  const lastY = ekgData[ekgData.length-1] || EKG_MID;
-  ctx.beginPath();
-  ctx.arc(lastX-2, lastY, 4, 0, Math.PI*2);
-  ctx.fillStyle='#00f0ff';
-  ctx.shadowBlur=20;
-  ctx.fill();
-  ctx.shadowBlur=0;
+// 右栏 Tab 切换
+var tBtnTasks=document.getElementById('tab-btn-tasks'), tBtnUps=document.getElementById('tab-btn-upgrades'), tBtnTools=document.getElementById('tab-btn-tools');
+var pTasks=document.getElementById('panel-tasks'), pUps=document.getElementById('panel-upgrades'), pTools=document.getElementById('panel-tools');
+
+function switchRightTab(activeBtn, activePanel) {
+  [tBtnTasks, tBtnUps, tBtnTools].forEach(b => { b.className = "py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-all cursor-pointer"; });
+  [pTasks, pUps, pTools].forEach(p => { p.classList.add('hidden'); });
+  activeBtn.className = "py-3 border-b-2 border-cyan-500 text-cyan-400 font-bold transition-all cursor-pointer";
+  activePanel.classList.remove('hidden');
 }
+tBtnTasks.onclick = function(){ switchRightTab(tBtnTasks, pTasks); };
+tBtnUps.onclick = function(){ switchRightTab(tBtnUps, pUps); };
+tBtnTools.onclick = function(){ switchRightTab(tBtnTools, pTools); };
 
-// ── D3 Graph ──
-function renderGraph(nodes,edges){
-  const svg = document.getElementById('graph-svg');
-  const W=740,H=280;
-  // Simple force layout simulation
-  const pos = {};
-  const N = nodes.length;
-  const cx=W/2, cy=H/2;
-  nodes.forEach((n,i)=>{
-    const angle = (i/N)*2*Math.PI - Math.PI/2;
-    const r = 100 + (i%3)*20;
-    pos[n.name] = {x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)};
-  });
-  // Edges
-  let html = '';
-  edges.forEach(e=>{
-    const s=pos[e.source]||{x:cx,y:cy};
-    const t=pos[e.target]||{x:cx+50,y:cy};
-    html+=`<line x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="${SYSTEM_COLORS[e.source]||'var(--border)'}" stroke-width="1.5" opacity="0.6"/>`;
-  });
-  // Nodes
-  nodes.forEach(n=>{
-    const p=pos[n.name]||{x:cx+Math.random()*100-50,y:cy+Math.random()*100-50};
-    const color=SYSTEM_COLORS[n.name]||'var(--cyan)';
-    const r=n.name==='KnowledgeCore'?8:12;
-    const label=n.name.replace('System','').replace('Core','');
-    html+=`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}" opacity="0.8" stroke="#000" stroke-width="1"/>`;
-    html+=`<text x="${p.x}" y="${p.y+r+12}" text-anchor="middle" fill="var(--text)" font-size="9">${label}</text>`;
-  });
-  svg.innerHTML = html;
-}
+var pMap = {
+  deepseek: {url:'https://api.deepseek.com',m:'deepseek-v4-flash'},
+  gemini: {url:'https://generativelanguage.googleapis.com/v1beta/openai',m:'gemini-1.5-flash'},
+  qwen: {url:'https://dashscope.aliyuncs.com/compatible-mode/v1',m:'qwen-plus'},
+  moonshot: {url:'https://api.moonshot.cn/v1',m:'moonshot-v1-8k'},
+  openai: {url:'https://api.openai.com/v1',m:'gpt-4o-mini'}
+};
+cp.addEventListener('change', function(e){ var cfg = pMap[e.target.value]; if(cfg) { cb.value = cfg.url; cm.value = cfg.m; ck.value=''; } });
 
-// ── Update Functions ──
-function updateStatus(data){
-  const {energy,heartbeat,growthStage,waste}=data;
-  const e=energy||{};
-  const hb=heartbeat||{};
-  const bpm = hb.heartRate||60;
-  document.getElementById('energy-val').textContent = Math.round(e.current??50);
-  document.getElementById('energy-val2').textContent = Math.round(e.current??50);
-  document.getElementById('energy-bar').style.width = (e.percent??50)+'%';
-  document.getElementById('bpm-val').textContent = bpm;
-  document.getElementById('bpm-val2').textContent = bpm;
-  document.getElementById('bpm-bar').style.width = Math.min(100,(bpm/120)*100)+'%';
-  document.getElementById('stage-val').textContent = growthStage||'—';
-  document.getElementById('stage-val2').textContent = growthStage||'—';
-  const wm = waste||{total:0};
-  document.getElementById('waste-val').textContent = wm.total;
-  document.getElementById('waste-val2').textContent = wm.total;
-  document.getElementById('waste-bar').style.width = wm.total+'%';
-  const run = data.isRunning;
-  document.getElementById('running-dot').className = run?'dot green':'dot red';
-  document.getElementById('running-text').textContent = run?'运行中':'已停止';
-  document.getElementById('status-badge').textContent = run?'运行中':'已停止';
-  document.getElementById('status-badge').className = 'badge'+(run?'':' off');
-  drawEKG(bpm, energy);
-}
-
-function updateHormones(hormones){
-  if(!hormones||hormones.length===0) return;
-  hormones.forEach(h=>{
-    const name = h.name||h.hormone||'';
-    const level = h.level??0;
-    const el = document.getElementById('h-'+name);
-    if(el){
-      el.textContent = level.toFixed(2);
-      // Update bar
-      const row = el.closest('.hormone-row');
-      if(row){
-        const fill = row.querySelector('.bar-fill');
-        if(fill){
-          fill.style.width = (level*100)+'%';
-          fill.style.background = HORMONE_COLORS[name]||'var(--cyan)';
-        }
-      }
+async function loadBrainConfig() {
+  try {
+    var r = await fetch('/api/control/config'); var d = await r.json();
+    if(d.success && d.config) {
+      cp.value = d.config.provider || 'deepseek'; cb.value = d.config.baseUrl || '';
+      cm.value = d.config.model || ''; ck.value = d.config.hasKey ? '••••••••••••••••••••••••' : '';
     }
-  });
-  document.getElementById('hormone-ts').textContent = new Date().toLocaleTimeString();
+  } catch(e){}
 }
 
-function updateAttention(attData){
-  const allocs = attData?.allocations||[];
-  const el = document.getElementById('attn-list');
-  if(allocs.length===0){
-    el.innerHTML = '<span style="color:var(--dim);font-size:11px">等待重平衡...</span>';
+clf.addEventListener('submit', async function(e){
+  e.preventDefault();
+  try {
+    var r = await fetch('/api/control/config/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: cp.value, baseUrl: cb.value, model: cm.value, apiKey: ck.value })
+    });
+    var d = await r.json();
+    if(d.success) {
+      bubble('system', '⚡核心脑桥配置已保存，正在热重启...');
+    }
+  } catch(err){}
+});
+
+bo.onclick = async function() {
+  try {
+    var r = await fetch('/api/opencode-key'); var d = await r.json();
+    if(d.providers && d.providers.length > 0) {
+      var f = d.providers[0];
+      cp.value = f.name.toLowerCase().includes('deepseek') ? 'deepseek' : 'openai';
+      cb.value = f.baseUrl || 'https://api.deepseek.com';
+      cm.value = f.model || 'deepseek-v4-flash';
+      ck.value = f.apiKey || '';
+      bubble('system', '📥 成功一键探测导入本地 OpenCode 凭证缓存！请点击下方按钮执行物理烧录。');
+    }
+  } catch(e){}
+};
+
+async function loadTasks() {
+  try {
+    var r = await fetch('/api/tasks'); var ts = await r.json();
+    tList.innerHTML = ts.map(function(t, idx){
+      var n = idx + 1;
+      return `<div class="bg-black/30 p-2 rounded-xl border border-slate-800/80 flex flex-col gap-1">
+        <div class="flex items-start justify-between gap-1">
+          <span class="bubble-text text-[11px] ${t.done?'line-through text-slate-600':'text-slate-300'}">#${n} ${t.content}</span>
+          <div class="flex gap-1 shrink-0">
+            <button onclick="toggleTask(${n})" class="text-[11px] font-bold ${t.done?'text-emerald-500':'text-slate-500 hover:text-emerald-400'} cursor-pointer">✓</button>
+            <button onclick="deleteTask(${n})" class="text-[11px] font-bold text-slate-600 hover:text-rose-400 cursor-pointer">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){}
+}
+async function toggleTask(n){ await fetch('/api/task/done?n='+n,{method:'POST'}); loadTasks(); }
+async function deleteTask(n){ await fetch('/api/task/del?n='+n,{method:'POST'}); loadTasks(); }
+bAddTask.onclick = async function(){
+  var t = prompt('请输入长期任务目标 (Objective):');
+  if(t && t.trim()) { await fetch('/api/task/add?t='+encodeURIComponent(t),{method:'POST'}); loadTasks(); }
+};
+
+async function loadSessions() {
+  try {
+    var r = await fetch('/api/convs'); var cs = await r.json();
+    sSidebar.innerHTML = cs.map(function(c){
+      var active = c.current ? 'border-cyan-500 bg-cyan-950/40 text-cyan-400 font-bold shadow-md' : 'border-slate-800 bg-black/20 text-slate-500 hover:text-slate-300';
+      return `<div onclick="switchSession('${c.id}')" class="p-2 border rounded-xl truncate cursor-pointer text-[11px] transition-all text-center ${active}">
+        💬 ${c.name || '线程'}<span class="block text-[9px] text-slate-600 font-normal mt-0.5">${c.msgs}条特征</span>
+      </div>`;
+    }).join('');
+  } catch(e){}
+}
+async function switchSession(id) {
+  await fetch('/api/conv/switch?id='+id,{method:'POST'});
+  cv.innerHTML = ''; ab = null;
+  await syncChatHistory();
+  await loadSessions();
+}
+async function syncChatHistory() {
+  try {
+    var r = await fetch('/api/chat/history'); var h = await r.json();
+    if(h && h.length > 0) {
+      cv.innerHTML = '';
+      h.forEach(function(m){ bubble(m.role, m.content); });
+    }
+  } catch(e){}
+}
+
+ts.addEventListener('change',function(e){document.documentElement.setAttribute('data-theme',e.target.value)});
+mo.addEventListener('change',async function(e){try{await fetch('/api/control/model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:e.target.value})})}catch(e){}});
+document.getElementById('btn-force-sleep').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'sleep'})})};
+document.getElementById('btn-force-flush').onclick=function(){fetch('/api/control/physiology',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'flush'})})};
+
+function bubble(r,t){
+ var u=r==='user',w=document.createElement('div');
+ w.className=u?'flex gap-3 max-w-[85%] ml-auto justify-end':'flex gap-3 max-w-[85%]';
+ var a=document.createElement('div');
+ a.className=u?'w-8 h-8 rounded-xl bg-slate-800 border flex items-center justify-center text-xs font-bold order-2':'w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md';
+ a.innerText=u?'主':'超';
+ var c=document.createElement('div');c.className='flex flex-col gap-1 w-full';
+ var b=document.createElement('div');
+ b.className=u?'bg-blue-600 px-4 py-2.5 rounded-2xl rounded-tr-none text-white bubble-text':'bg-slate-900/80 border border-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-slate-300 bubble-text';
+ b.innerText=t;c.appendChild(b);w.appendChild(a);w.appendChild(c);
+ cv.appendChild(w);cv.scrollTop=cv.scrollHeight;if(!u)ab=b;
+}
+
+cf.addEventListener('submit',async function(e){
+ e.preventDefault();var t=ci.value.trim();if(!t)return;
+ bubble('user',t);ci.value='';ab=null;
+ try{
+   await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
+   setTimeout(loadSessions, 1000);
+ }catch(e){}
+});
+
+var bs=new EventSource('/api/biometrics-stream');
+bs.onmessage=function(e){
+ try{
+  var d=JSON.parse(e.data);
+  document.getElementById('growth-stage').innerText=d.stage;
+  document.getElementById('wisdom-score').innerText=d.wisdom||0;
+  var sec=Math.floor(d.uptime/1000);
+  document.getElementById('uptime').innerText=String(Math.floor(sec/3600)).padStart(2,'0')+':'+String(Math.floor((sec%3600)/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+  document.getElementById('energy-bar').style.width=d.energy.percent+'%';
+  document.getElementById('energy-mode').innerText=d.energy.mode;
+  document.getElementById('heart-rate').innerText=d.heart.heartRate;
+  document.getElementById('energy-debt').innerText=d.energy.debt||0;
+  document.getElementById('toxin-level').innerText=d.waste.total+'%';
+  
+  (d.biometrics||[]).forEach(function(s){
+   if(s.name==='Nervous'){
+    document.getElementById('cognitive-load').innerText=s.load.toFixed(2);
+    document.getElementById('current-model-name').innerText=s.metadata?.modelName||'?';
+    document.getElementById('state-dot').className='w-2 h-2 rounded-full '+(s.status==='stressed'?'bg-rose-500 animate-ping':'bg-blue-500 animate-pulse');
+    mo.value = s.metadata?.isModelLocked ? s.metadata?.model : 'auto';
+   }
+   if(s.name==='Respiratory'){
+    var tkRem = s.metadata?.tokensRemaining || 0;
+    var tkCap = s.metadata?.capacity || 10000;
+    document.getElementById('token-bar').style.width = ((tkRem / tkCap) * 100) + '%';
+    document.getElementById('token-status').innerText = Math.floor(tkRem) + ' / ' + tkCap;
+    document.getElementById('breath-lock').innerText = s.metadata?.isHoldingBreath ? "⚠ 缺氧代偿" : "正常换气";
+    document.getElementById('breath-lock').className = s.metadata?.isHoldingBreath ? "text-rose-400 font-bold" : "text-emerald-400 font-bold";
+   }
+   if(s.name==='Endocrine'){
+    var h=s.metadata?.hormones||{};
+    ['adrenaline','cortisol','dopamine'].forEach(function(k){
+     var v=h[k]||0;var el=document.getElementById('h-'+k);if(el)el.innerText=v.toFixed(2);
+     var bl=document.getElementById('b-'+k);if(bl)bl.style.width=(v*100)+'%';
+    });
+   }
+   if(s.name==='Musculoskeletal'){
+    var tls=s.metadata?.tools||[];
+    document.getElementById('tools-grid').innerHTML=tls.map(function(t){return'<div class="bg-black/30 p-2 rounded-xl border border-slate-800 flex flex-col font-mono text-[11px]"><div class="flex justify-between text-teal-400 font-bold"><span>🛠 '+t.name+'</span><span>x'+t.usage+'</span></div><div class="text-right text-slate-500 text-[10px] mt-0.5">成功率: '+(t.successRate*100).toFixed(0)+'%</div></div>'}).join('');
+   }
+  });
+  renderUpgrade(d.upgrades||[]);
+ }catch(e){}
+};
+
+function renderUpgrade(upgrades) {
+  var shop = document.getElementById('upgrade-shop');
+  if (!shop) return;
+  if (!upgrades || upgrades.length === 0) {
+    shop.innerHTML = '<div class="text-slate-600 text-[11px] text-center py-4">暂无可用升级</div>';
     return;
   }
-  el.innerHTML = allocs.map(a=>{
-    const pct = (a.focus*100).toFixed(1);
-    const color = SYSTEM_COLORS[a.system]||'var(--cyan)';
-    return `<span class="attn-tag" style="border-color:${color}20;background:${color}15">${a.system.replace('System','')} ${pct}%</span>`;
+  shop.innerHTML = upgrades.map(function(u){
+    var applied = u.applied ? 'opacity-50' : '';
+    return '<div class="bg-black/30 p-2 rounded-xl border border-slate-800 flex flex-col gap-1 '+applied+'">' +
+      '<div class="flex justify-between items-center"><span class="text-teal-400 font-bold text-[11px]">'+u.name+'</span><span class="text-amber-400 text-[10px]">⚡'+u.cost+'</span></div>' +
+      '<div class="text-slate-400 text-[10px]">'+u.description+'</div>' +
+      (!u.applied ? '<button onclick="applyUpgrade(\''+u.id+'\')" class="text-[10px] bg-indigo-800 hover:bg-indigo-700 text-indigo-200 border border-indigo-700 px-2 py-0.5 rounded mt-1 transition-all cursor-pointer">安装芯片</button>' : '<div class="text-emerald-500 text-[10px] mt-1">✅ 已安装</div>') +
+    '</div>';
   }).join('');
 }
-
-function updateGraph(depData){
-  const nodes = depData?.nodes||[];
-  const edges = depData?.edges||[];
-  document.getElementById('graph-info').textContent = `系统: ${nodes.length} | 链接: ${edges.length}`;
-  renderGraph(nodes,edges);
+async function applyUpgrade(id) {
+  try{await fetch('/api/control/upgrade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})})}catch(e){}
 }
 
-function updateKnowledge(events){
-  const el = document.getElementById('kflow-list');
-  if(!events||events.length===0){
-    el.innerHTML = '<span style="color:var(--dim)">暂无知识流</span>';
-    return;
+var pl=new EventSource('/api/event-bus-pulse');
+pl.addEventListener('thought:chunk',function(e){
+ try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(!d.isReasoning&&ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
+});
+pl.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
+pl.addEventListener('learning:cycle',function(e){
+ try{var d=JSON.parse(e.data);tc.innerText=d.message||tc.innerText}catch(e){}
+});
+pl.addEventListener('hormone:shift',function(e){
+ try{
+  var d=JSON.parse(e.data);
+  var bar=document.getElementById('b-'+d.type);
+  var txt=document.getElementById('h-'+d.type);
+  var container=txt?txt.parentElement:bar?bar.parentElement:null;
+  if(bar){bar.style.width=(d.level*100)+'%'}
+  if(txt){txt.innerText=d.level.toFixed(2)}
+  var colorMap={adrenaline:'#ff0055',cortisol:'#ffaa00',dopamine:'#00ffaa',serotonin:'#00aaff',oxytocin:'#cc00ff'};
+  if(container){
+   container.style.setProperty('--pulse-color',colorMap[d.type]||'#00fff2');
+   container.classList.remove('hormone-spike-active');
+   void container.offsetWidth;
+   container.classList.add('hormone-spike-active');
   }
-  document.getElementById('kflow-count').textContent = events.length;
-  el.innerHTML = events.slice(-15).reverse().map(e=>{
-    const type = e.type||'event';
-    const src = e.source||'?';
-    const tgt = e.target||'';
-    const desc = e.description||e.content||'';
-    return `<div style="padding:2px 4px;border-left:2px solid ${type==='learned'?'var(--yellow)':'var(--green)'};font-size:10px">
-      <span style="color:${type==='learned'?'var(--yellow)':'var(--green)'}">${type}</span>
-      <span style="color:var(--dim)">${src}${tgt?' → '+tgt:''}</span>
-      <span style="color:var(--text)">${desc.substring(0,60)}</span>
-    </div>`;
-  }).join('');
+ }catch(e){}
+});
+
+async function loadUpgrades() {
+  try {
+    var r = await fetch('/api/status'); var d = await r.json();
+    renderUpgrade(d.availableUpgrades||[]);
+  } catch(e){}
 }
 
-function addChatMessage(sender,text){
-  const el = document.getElementById('chat-msgs');
-  const cls = sender==='user'?'user':'nova';
-  el.innerHTML += `<div class="msg ${cls}"><div class="sender">◆ ${sender.toUpperCase()}</div>${text}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
-
-function updateTicker(text){
-  document.getElementById('ticker-text').textContent = text;
-  document.getElementById('ticker-main').textContent = text;
-}
-
-// ── Chat ──
-document.getElementById('chat-send').addEventListener('click',sendChat);
-document.getElementById('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat()});
-async function sendChat(){
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if(!text) return;
-  addChatMessage('user',text);
-  input.value='';
-  try{
-    const resp = await fetch(API+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
-    const data = await resp.json();
-    if(data.reply) addChatMessage('nova',data.reply);
-    else if(data.ok) addChatMessage('system','已收到');
-    updateTicker(`🧑 ${text}`);
-  }catch(e){addChatMessage('system','发送失败: '+e.message)}
-}
-
-// ── Polling Loop ──
-async function pollAll(){
-  try{
-    const [statusRes,bioRes,depRes,attRes,knowRes,horRes] = await Promise.all([
-      fetch(API+'/api/status'),fetch(API+'/api/biometrics'),
-      fetch(API+'/api/dependencies'),fetch(API+'/api/attention'),
-      fetch(API+'/api/knowledge'),fetch(API+'/api/hormones')
-    ]);
-    const status = await statusRes.json();
-    const bio = await bioRes.json();
-    const dep = await depRes.json();
-    const att = await attRes.json();
-    const know = await knowRes.json();
-    const hor = await horRes.json();
-
-    updateStatus(status);
-    updateHormones(hor);
-    updateAttention(att);
-    updateGraph(dep);
-    updateKnowledge(know);
-
-    const w = status.energy?.energy??50;
-    document.getElementById('wisdom-val').textContent = bio.wisdom||0;
-    document.getElementById('wisdom-val2').textContent = bio.wisdom||0;
-
-    // Ticker
-    const topSys = att.allocations?.slice(0,2).map(a=>a.system.replace('System','')).join(', ')||'—';
-    updateTicker(`❤ ${status.heartbeat?.heartRate||60}BPM | 能量 ${w}% | 聚焦: ${topSys} | 阶段: ${status.growthStage||'—'} | ${new Date().toLocaleTimeString()}`);
-
-  }catch(e){
-    console.error('Poll error:',e);
-    document.getElementById('status-badge').textContent='离线';
-    document.getElementById('status-badge').className='badge off';
-  }
-}
-
-// ── Init ──
-window.addEventListener('DOMContentLoaded',()=>{
-  pollAll();
-  setInterval(pollAll,3000);
-  // ── EKG 高速渲染 (6fps) ──
-  setInterval(()=>{
-    const bpm = parseInt(document.getElementById('bpm-val')?.textContent) || 80;
-    const e = parseFloat(document.getElementById('energy-bar')?.style?.width) || 50;
-    drawEKG(bpm, e);
-  }, 160);
-  // Simulate incoming agent messages (in real setup, SSE or polling /api/status for changes)
-  setInterval(()=>{
-    const msgs = document.getElementById('chat-msgs');
-    // Don't spam — only add if last msg is not from nova and not empty
-    if(msgs.children.length>1){
-      const last = msgs.lastElementChild;
-      if(last && last.querySelector('.sender')?.textContent?.includes('NOVA')) return;
-    }
-  },5000);
+window.addEventListener('DOMContentLoaded', function(){ 
+  loadBrainConfig(); 
+  loadTasks(); 
+  loadSessions();
+  syncChatHistory();
+  loadUpgrades();
 });
 </script>
 </body>

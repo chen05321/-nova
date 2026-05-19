@@ -190,14 +190,10 @@ ${currentCode.substring(0, 3000)}
       });
       const data = await resp.json() as any;
       improvedCode = data?.choices?.[0]?.message?.content || '';
-      // 🌟 [修复Bug2]: 多阶兼容正则，同时匹配 ```typescript 和 ```diff 包裹
+      // 匹配 ```typescript / ```diff / ```ts 包裹，或纯代码（无 markdown 标签）
       let codeMatch = improvedCode.match(/```(?:typescript|diff|ts)\n?([\s\S]*?)```/i);
       if (codeMatch) improvedCode = codeMatch[1].trim();
-      // 如果没匹配到代码块，尝试直接提取 {} 包围的代码体
-      if (!codeMatch) {
-        const braceMatch = improvedCode.match(/(\{[\s\S]*\})/);
-        if (braceMatch) improvedCode = braceMatch[1].trim();
-      }
+      // 没有代码块包裹时，视为纯代码直接使用
     } catch (err: any) {
       this.log(`进化: LLM 调用失败: ${err.message}`);
       return;

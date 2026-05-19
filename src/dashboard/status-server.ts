@@ -132,7 +132,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
-      // SSE: event bus pulse
+      // SSE: event bus pulse（串行写锁队列，防高频踩踏）
       if (url.pathname === '/api/event-bus-pulse') {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -140,31 +140,26 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           'Connection': 'keep-alive',
           'Access-Control-Allow-Origin': '*'
         });
-        const onChunk = (event: any) => {
-          if (event.origin === 'NervousSystem') {
-            try { res.write(`event: thought:chunk\ndata: ${JSON.stringify({ chunk: event.payload?.chunk || '', isReasoning: event.payload?.isReasoning ?? false })}\n\n`); } catch {}
-          }
+        let writeQueue: string[] = [];
+        let isWriting = false;
+        const processQueue = () => {
+          if (isWriting || writeQueue.length === 0) return;
+          isWriting = true;
+          const msg = writeQueue.shift()!;
+          res.write(msg, 'utf-8', () => { isWriting = false; process.nextTick(processQueue); });
         };
-        const onPerceived = () => {
-          try { res.write(`event: thought:perceived\ndata: {}\n\n`); } catch {}
+        const safePush = (eventType: string, data: any) => {
+          writeQueue.push(`event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`);
+          processQueue();
         };
-        const onLearning = (event: any) => {
-          try {
-            const p = event.payload || {};
-            const msg = p.error ? `❌ ${p.error}` : `📖 学习了: ${(p.learned || []).join(', ')}`;
-            res.write(`event: learning:cycle\ndata: ${JSON.stringify({ message: msg, error: !!p.error })}\n\n`);
-          } catch {}
-        };
-        const onHormoneShift = (event: any) => {
-          try {
-            res.write(`event: hormone:shift\ndata: ${JSON.stringify(event.payload)}\n\n`);
-          } catch {}
-        };
+        const onChunk = (e: any) => { if (e.origin === 'NervousSystem') safePush('thought:chunk', { chunk: e.payload?.chunk || '', isReasoning: e.payload?.isReasoning ?? false }); };
+        const onHormoneShift = (e: any) => safePush('hormone:shift', e.payload);
         bus.on('thought:chunk', onChunk);
         bus.on('hormone:shift', onHormoneShift);
         req.on('close', () => {
           bus.removeListener('thought:chunk', onChunk);
           bus.removeListener('hormone:shift', onHormoneShift);
+          writeQueue = [];
         });
         return;
       }

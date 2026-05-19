@@ -453,15 +453,20 @@ export class NovaAgent {
       }
     });
 
-    // Sleep monitor: sleep when energy too low, wake when recovered
+    // Sleep monitor: sleep when energy too low, passive recovery during sleep
     this.bus.on('heart:beat', () => {
       const energy = this.bus.energyLevel;
       if (energy < 15 && !this.isSleeping) {
         this.isSleeping = true;
         this.memory.addFact('[睡眠] 能量不足，进入休眠', 'sleep', 0.8);
-      } else if (energy > 60 && this.isSleeping) {
-        this.isSleeping = false;
-        this.memory.addFact('[苏醒] 能量恢复，重新激活', 'sleep', 0.8);
+      }
+      // 休眠时被动恢复能量，防止死锁
+      if (this.isSleeping) {
+        this.bus.produceEnergy('NovaAgent', 2);
+        if (energy > 50) {
+          this.isSleeping = false;
+          this.memory.addFact('[苏醒] 能量恢复，重新激活', 'sleep', 0.8);
+        }
       }
     });
     this.isRunning = true;

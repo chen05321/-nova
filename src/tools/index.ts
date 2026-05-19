@@ -37,15 +37,11 @@ export const writeFileTool: Tool = {
     const content = args.content;
     if (!file) return { success: false, output: '', error: 'Descriptor missing. Supply "path" or "file".' };
 
-    let fileHandle = null;
     try {
-      fileHandle = await fsPromises.open(file, 'w');
-      await fileHandle.writeFile(content || '', 'utf-8');
+      await fsPromises.writeFile(file, content || '', 'utf-8');
       return { success: true, output: `Successfully committed mutations at [${file}].` };
     } catch (err: any) {
       return { success: false, output: '', error: `IO Write Exception: ${err.message}` };
-    } finally {
-      if (fileHandle) await fileHandle.close();
     }
   }
 };

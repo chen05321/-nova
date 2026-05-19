@@ -327,7 +327,9 @@ function bubble(r,t){
 
 cf.addEventListener('submit',async function(e){
  e.preventDefault();var t=ci.value.trim();if(!t)return;
- bubble('user',t);ci.value='';ab=null;
+ bubble('user',t);ci.value='';
+ // 立刻显示"思考中..."，不让用户干等
+ bubble('assistant','✨ 思考中...');
  try{
    await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
    setTimeout(loadSessions, 1000);
@@ -403,7 +405,9 @@ var pl=new EventSource('/api/event-bus-pulse');
 pl.addEventListener('thought:chunk',function(e){
  try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(!d.isReasoning&&ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
 });
-pl.addEventListener('thought:perceived',function(){bubble('assistant','思考中...')});
+pl.addEventListener('thought:perceived',function(){
+ if(!ab) bubble('assistant','✨ 思考中...');
+});
 pl.addEventListener('learning:cycle',function(e){
  try{var d=JSON.parse(e.data);tc.innerText=d.message||tc.innerText}catch(e){}
 });

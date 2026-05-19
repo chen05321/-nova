@@ -12,7 +12,6 @@ import { System } from './system';
 import { MemoryStore } from './memory';
 import { ForagingSystem } from './foraging';
 import { SelfLearningSystem } from './learning';
-import { KnowledgeCore } from './knowledge-core/index';
 
 interface StageRequirement {
   actionsRequired: number;
@@ -35,7 +34,7 @@ export class NovaAgent {
   public memory: MemoryStore;
   public foraging: ForagingSystem;
   public learning: SelfLearningSystem;
-  private systems: Map<string, any> = new Map();
+  private systems: Map<string, System> = new Map();
   private stage: GrowthStage = GrowthStage.NEWBORN;
   private transitions: LifecycleTransition[] = [];
   private actionCount = 0;
@@ -336,7 +335,6 @@ export class NovaAgent {
     this.startTime = Date.now();
     this.actionCount = 0;
     this.transitions = [];
-    this.isSleeping = false;
     this.bus.pulse('reproductive:rebirth', { wisdom, personality: savedPersonality }, 'NovaAgent');
 
     this.stage = GrowthStage.NEWBORN;
@@ -405,10 +403,7 @@ export class NovaAgent {
   async boot(): Promise<void> {
     console.log('[超体] Booting systems...');
 
-    // Initialize KnowledgeCore first (shared knowledge layer)
-    const knowledgeCore = KnowledgeCore.getInstance();
-
-    this.nervous = new NervousSystem();
+    this.nervous = new NervousSystem(this.memory);
     this.musculoskeletal = new MusculoskeletalSystem();
     this.endocrine = new EndocrineSystem();
     this.respiratory = new RespiratorySystem();
@@ -417,39 +412,19 @@ export class NovaAgent {
     this.reproductive = new ReproductiveSystem();
     this.immune = new ImmuneSystem();
 
-    this.systems.set('NervousSystem', this.nervous as any);
+    this.systems.set('NervousSystem', this.nervous);
     this.systems.set('MusculoskeletalSystem', this.musculoskeletal);
     this.systems.set('EndocrineSystem', this.endocrine);
     this.systems.set('RespiratorySystem', this.respiratory);
-    this.systems.set('DigestiveSystem', this.digestive as any);
+    this.systems.set('DigestiveSystem', this.digestive);
     this.systems.set('UrinarySystem', this.urinary);
-    this.systems.set('ReproductiveSystem', this.reproductive as any);
+    this.systems.set('ReproductiveSystem', this.reproductive);
     this.systems.set('ImmuneSystem', this.immune);
 
     for (const [name, system] of this.systems) {
       await system.init();
       console.log(`  ✓ ${name} initialized`);
     }
-
-    console.log(`  ✓ KnowledgeCore initialized (${knowledgeCore.getStats().totalNodes} nodes)`);
-
-    // ═══════════ 注册系统间知识依赖 ═══════════
-    this.bus.registerDependency('SelfLearningSystem', 'DigestiveSystem', 'knowledge', '学习成果送入消化管道');
-    this.bus.registerDependency('DigestiveSystem', 'NervousSystem', 'knowledge', '消化后知识发送到神经中枢');
-    this.bus.registerDependency('NervousSystem', 'ReproductiveSystem', 'knowledge', '高置信度知识作为进化素材');
-    this.bus.registerDependency('ReproductiveSystem', 'KnowledgeCore', 'knowledge', '进化结果存入知识库');
-    this.bus.registerDependency('NervousSystem', 'UrinarySystem', 'knowledge', '知识归档/淘汰指令');
-    this.bus.registerDependency('ForagingSystem', 'DigestiveSystem', 'data_flow', '觅食结果送入消化管道');
-    this.bus.registerDependency('NervousSystem', 'ForagingSystem', 'control', '神经中枢控制觅食策略');
-    this.bus.registerDependency('NervousSystem', 'ImmuneSystem', 'control', '免疫系统监控错误模式');
-    this.bus.registerDependency('NervousSystem', 'MusculoskeletalSystem', 'control', '工具使用指令协调');
-    this.bus.registerDependency('NervousSystem', 'EndocrineSystem', 'control', '激素调节指令');
-    this.bus.registerDependency('NervousSystem', 'RespiratorySystem', 'control', 'token容量调配');
-    this.bus.registerDependency('ImmuneSystem', 'DigestiveSystem', 'data_flow', '错误模式送入消化分析');
-    this.bus.registerDependency('EndocrineSystem', 'NervousSystem', 'control', '激素水平影响注意力分配');
-    this.bus.registerDependency('MusculoskeletalSystem', 'NervousSystem', 'data_flow', '工具执行反馈');
-    this.bus.registerDependency('UrinarySystem', 'KnowledgeCore', 'data_flow', '知识归档入库');
-    this.bus.registerDependency('RespiratorySystem', 'NervousSystem', 'data_flow', 'token容量状态反馈');
 
     this.bus.setGrowthStage(this.stage);
     this.bus.startHeart();
@@ -475,19 +450,6 @@ export class NovaAgent {
       } catch (err: any) {
         console.error(`[看门狗] ❌ 编译失败: ${err.message}`);
         this.bus.pulse('thought:chunk', { chunk: `\n❌ 进化编译失败: ${err.message}` }, 'NovaAgent');
-      }
-    });
-
-    // AgentLoop integration: respond to agent:prompt so execute() can resolve
-    this.bus.on('agent:prompt', (data: any) => {
-      const payload = data?.payload || data;
-      const text = typeof payload === 'string' ? payload : payload?.text || '';
-      // Simulate a quick thought cycle: route to NervousSystem for processing
-      if (this.nervous) {
-        this.bus.pulse('thought:chunk', { chunk: `\n🤔 Processing: ${text.substring(0, 100)}...` }, 'NovaAgent');
-        setTimeout(() => {
-          this.nervous!.emitResponse(`Processed: ${text.substring(0, 200)}`);
-        }, 500);
       }
     });
 

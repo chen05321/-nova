@@ -1,52 +1,11 @@
-/**
- * CirculatorySystem (Enhanced) — 增强型事件心脉系统
- *
- * 在原版心跳/能量的基础上增加：
- * 1. 结构化知识事件传递（KnowledgeEvent）
- * 2. 跨系统信号路由（SystemSignal）
- * 3. 事件追踪链（谁触发了谁）
- * 4. 信号衰减机制
- */
-
 import * as os from 'os';
 import { EventEmitter } from 'events';
-import { NovaEvent, EnergyFlow, HeartbeatState, GrowthStage, WasteMetrics, KnowledgeEvent } from './types';
-
-/** 跨系统信号 — 带元数据的结构化消息 */
-export interface SystemSignal {
-  source: string;           // 来源系统
-  target: string[];         // 目标系统列表
-  type: string;             // 信号类型
-  payload: Record<string, unknown>;
-  chain: string[];          // 信号传播链（追踪谁触发了谁）
-  priority: 'low' | 'normal' | 'high' | 'critical';
-  timestamp: number;
-  ttl: number;              // 存活时间（毫秒）
-}
-
-/** 系统间依赖注册 */
-interface SystemDependency {
-  source: string;
-  target: string;
-  type: 'data_flow' | 'control' | 'energy' | 'knowledge';
-  description: string;
-}
+import { NovaEvent, EnergyFlow, HeartbeatState, GrowthStage, WasteMetrics } from './types';
 
 export class CirculatorySystem extends EventEmitter {
   private static instance: CirculatorySystem;
   private eventLog: NovaEvent[] = [];
   private readonly maxLogSize = 500;
-
-  // Knowledge event log (separate from regular events)
-  private knowledgeLog: KnowledgeEvent[] = [];
-  private readonly maxKnowledgeLogSize = 200;
-
-  // System signal routing
-  private signalQueue: SystemSignal[] = [];
-  private readonly maxSignalQueueSize = 100;
-
-  // Dependency graph
-  private systemDependencies: SystemDependency[] = [];
 
   //  Energy
   private _energy = 50;
@@ -145,7 +104,7 @@ export class CirculatorySystem extends EventEmitter {
     this._alive = true;
     this.startTime = Date.now();
     this.lastBeatTime = Date.now();
-    this.beatTimer = setInterval(() => this.beat(), Math.max(500, Math.round(60000 / Math.max(60, this._heartRate))));
+    this.beatTimer = setInterval(() => this.beat(), 1000);
     this.pulse('heart:start', this.getHeartbeatState(), 'CirculatorySystem');
   }
 
@@ -160,30 +119,34 @@ export class CirculatorySystem extends EventEmitter {
     this.lastBeatTime = Date.now();
 
     // 硬件体征映射：CPU 负载 → 额外能耗
-    let cpuPercent = 0.3;
     try {
-      const cpuLoad = os.loadavg()[0];
+      const cpuLoad = os.loadavg()[0]; // 1 分钟平均负载
       const cpuCores = os.cpus().length;
-      cpuPercent = Math.min(1, cpuLoad / cpuCores);
+      const cpuPercent = Math.min(1, cpuLoad / cpuCores);
       if (cpuPercent > 0.7) {
         this._energy = Math.max(0, this._energy - this.bmrPerBeat * cpuPercent);
         this.addWaste('stale', Math.round(cpuPercent * 2));
+        // CPU > 70% 时触发压力激素信号
         this.pulse('hormone:shift', { type: 'cortisol', level: cpuPercent * 0.3, source: 'HardwareMonitor' }, 'CirculatorySystem');
       }
     } catch {}
 
+    // BMR: each beat consumes energy just to stay alive
     const hour = new Date().getHours();
-    const nightMultiplier = (hour < 6 || hour > 23) ? 2 : 1;
+    const nightMultiplier = (hour < 6 || hour > 23) ? 2 : 1; // night costs double
     this._energy = Math.max(0, this._energy - this.bmrPerBeat * nightMultiplier);
 
+    // Gradually recover from debt
     if (this._debt > 0 && this._beat % 5 === 0) {
       this._debt = Math.max(0, this._debt - 1);
     }
 
+    // Passive recovery when above 30%
     if (this._energy < 30 && this._energy > 5 && this._beat % 3 === 0) {
       this._energy = Math.min(this._maxEnergy, this._energy + 1);
     }
 
+    // Waste cleanup during heartbeat (slow natural decay)
     if (this._waste.total > 0 && this._beat % 10 === 0) {
       this.flushWaste(1);
     }
@@ -192,18 +155,10 @@ export class CirculatorySystem extends EventEmitter {
       this.pulse('heart:critical', this.getHeartbeatState(), 'CirculatorySystem');
     }
 
-    // 心率：能量越低心跳越快 + CPU 负载波动 + 随机扰动
-    const baseBpm = Math.round(80 + (1 - this._energy / this._maxEnergy) * 40 + cpuPercent * 20);
-    this._heartRate = Math.max(60, Math.min(140, baseBpm + Math.round((Math.random() - 0.5) * 10)));
+    // Heart rate varies with energy
+    this._heartRate = 40 + Math.round((1 - this._energy / this._maxEnergy) * 60);
 
     this.pulse('heart:beat', this.getHeartbeatState(), 'CirculatorySystem');
-
-    // 自适应调整心跳间隔
-    const newInterval = Math.max(400, Math.round(60000 / this._heartRate));
-    if (this.beatTimer) {
-      clearInterval(this.beatTimer);
-      this.beatTimer = setInterval(() => this.beat(), newInterval);
-    }
   }
 
   getHeartbeatState(): HeartbeatState {
@@ -241,6 +196,7 @@ export class CirculatorySystem extends EventEmitter {
       return true;
     }
 
+    // Allow debt for critical operations
     if (amount > 0) {
       const debtAmount = amount - this._energy;
       this._energy = 0;
@@ -255,6 +211,7 @@ export class CirculatorySystem extends EventEmitter {
   }
 
   produceEnergy(system: string, amount: number): void {
+    // Debt repayment: half of new energy goes to debt first
     let actualGain = amount;
     if (this._debt > 0) {
       const repayment = Math.min(this._debt, Math.ceil(amount * 0.5));
@@ -312,82 +269,6 @@ export class CirculatorySystem extends EventEmitter {
     if (this.eventLog.length > this.maxLogSize) {
       this.eventLog.shift();
     }
-  }
-
-  // ═══════════ 结构化知识路由 ═══════════
-
-  /** 发送结构化系统信号（带路由和衰减） */
-  sendSignal(signal: Omit<SystemSignal, 'timestamp'>): void {
-    const fullSignal: SystemSignal = {
-      ...signal,
-      timestamp: Date.now(),
-    };
-
-    this.signalQueue.push(fullSignal);
-    if (this.signalQueue.length > this.maxSignalQueueSize) {
-      this.signalQueue.shift();
-    }
-
-    // 发送给每个目标系统
-    for (const target of signal.target) {
-      this.pulse(`signal:${target}`, fullSignal, signal.source);
-    }
-    // 全局信号
-    this.pulse('signal:*', fullSignal, signal.source);
-  }
-
-  /** 注册系统间依赖关系 */
-  registerDependency(source: string, target: string, type: 'data_flow' | 'control' | 'energy' | 'knowledge', description: string): void {
-    this.systemDependencies.push({ source, target, type, description });
-  }
-
-  /** 获取系统依赖图 */
-  getSystemDependencies(): SystemDependency[] {
-    return [...this.systemDependencies];
-  }
-
-  /** 获取系统依赖图摘要（用于dashboard） */
-  getDependencyGraphSummary(): {
-    nodes: { name: string; incoming: number; outgoing: number }[];
-    edges: { from: string; to: string; type: string }[];
-  } {
-    const nodeMap = new Map<string, { name: string; incoming: number; outgoing: number }>();
-
-    for (const dep of this.systemDependencies) {
-      if (!nodeMap.has(dep.source)) nodeMap.set(dep.source, { name: dep.source, incoming: 0, outgoing: 0 });
-      if (!nodeMap.has(dep.target)) nodeMap.set(dep.target, { name: dep.target, incoming: 0, outgoing: 0 });
-      nodeMap.get(dep.source)!.outgoing++;
-      nodeMap.get(dep.target)!.incoming++;
-    }
-
-    return {
-      nodes: [...nodeMap.values()],
-      edges: this.systemDependencies.map(d => ({ from: d.source, to: d.target, type: d.type })),
-    };
-  }
-
-  /** 获取最近的跨系统信号流 */
-  getRecentSignals(limit: number = 20): SystemSignal[] {
-    return this.signalQueue.slice(-limit);
-  }
-
-  /** 记录知识事件（和普通事件分开记录） */
-  logKnowledgeEvent(event: KnowledgeEvent): void {
-    this.knowledgeLog.push(event);
-    if (this.knowledgeLog.length > this.maxKnowledgeLogSize) {
-      this.knowledgeLog.shift();
-    }
-    this.pulse(`knowledge:${event.type}`, event, event.sourceSystem);
-  }
-
-  /** 获取知识事件日志 */
-  getKnowledgeLog(): KnowledgeEvent[] {
-    return [...this.knowledgeLog];
-  }
-
-  /** 按系统过滤知识事件 */
-  getKnowledgeEventsBySystem(system: string): KnowledgeEvent[] {
-    return this.knowledgeLog.filter(e => e.sourceSystem === system || e.targetSystems.includes(system));
   }
 
   public getEventLog(): NovaEvent[] {

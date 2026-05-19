@@ -129,6 +129,15 @@ export class ReproductiveSystem extends System {
       return;
     }
 
+    // 创建 Git 安全快照锚点
+    const hasGit = fs.existsSync(path.join(process.cwd(), '.git'));
+    if (hasGit) {
+      try {
+        execSync('git add -A && git commit -m "pre_evolution_safety_snapshot" 2>/dev/null', { cwd: process.cwd(), timeout: 15000 });
+        this.log('🛡️ Git 防爆快照锚点已创建');
+      } catch {}
+    }
+
     // 1. 读目标文件当前内容
     const currentCode = fs.readFileSync(srcFile, 'utf-8');
 

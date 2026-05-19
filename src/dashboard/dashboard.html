@@ -328,16 +328,11 @@ function bubble(r,t){
 cf.addEventListener('submit',async function(e){
  e.preventDefault();var t=ci.value.trim();if(!t)return;
  bubble('user',t);ci.value='';
- // 提前创建回复气泡，防止 thought:chunk 先于 thought:perceived 到达
- var replyDiv=document.createElement('div');
- replyDiv.className='flex gap-3 max-w-[85%]';
- replyDiv.innerHTML='<div class="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-md">超</div><div class="bg-slate-900/80 border border-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-slate-300 bubble-text" id="stream-reply"></div>';
- cv.appendChild(replyDiv);
+ bubble('assistant','');
  cv.scrollTop=cv.scrollHeight;
- ab=document.getElementById('stream-reply');
  try{
    await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
-   setTimeout(loadSessions, 1000);
+   setTimeout(loadSessions, 3000);
  }catch(e){}
 });
 
@@ -410,10 +405,7 @@ var pl=new EventSource('/api/event-bus-pulse');
 pl.addEventListener('thought:chunk',function(e){
  try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(!d.isReasoning&&ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
 });
-pl.addEventListener('thought:perceived',function(){
- var existing=document.getElementById('stream-reply');
- if(!existing) bubble('assistant','思考中...');
-});
+pl.addEventListener('thought:perceived',function(){});
 pl.addEventListener('learning:cycle',function(e){
  try{var d=JSON.parse(e.data);tc.innerText=d.message||tc.innerText}catch(e){}
 });

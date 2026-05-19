@@ -106,10 +106,10 @@ export class ReproductiveSystem extends System {
   }
 
   // 读取错题本 + 分析要改的文件 → 调用LLM生成补丁 → 写文件 → 编译
-  private async triggerEvolution(errorContext: string = ''): Promise<void> {
+  async triggerEvolution(errorContext: string = '', specificFile?: string): Promise<boolean> {
     if (!this.consumeEnergy(30)) {
       this.log('能量不足，无法进化');
-      return;
+      return false;
     }
     this.log('🧬 进化触发！开始分析缺陷并生成补丁...');
 
@@ -149,7 +149,7 @@ export class ReproductiveSystem extends System {
 
     if (!fs.existsSync(srcFile)) {
       this.log(`目标文件不存在: ${srcFile}`);
-      return;
+      return false;
     }
 
     // 创建 Git 安全快照锚点
@@ -228,12 +228,12 @@ ${currentCode.substring(0, 3000)}
       // 没有代码块包裹时，视为纯代码直接使用
     } catch (err: any) {
       this.log(`进化: LLM 调用失败: ${err.message}`);
-      return;
+      return false;
     }
 
     if (!improvedCode || improvedCode.length < 10) {
       this.log('进化: 生成的代码无效');
-      return;
+      return false;
     }
 
     // 提取函数名，并在原文件中做精准替换
@@ -284,7 +284,7 @@ ${currentCode.substring(0, 3000)}
     } catch (err: any) {
       this.log(`进化: 写文件失败: ${err.message}`);
       if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
-      return;
+      return false;
     }
 
     // 7. 编译沙箱验证
@@ -311,7 +311,7 @@ ${currentCode.substring(0, 3000)}
       if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
     }
 
-    if (!buildSuccess) return;
+    if (!buildSuccess) return false;
 
     const mutation: EvolutionMutation = {
       type: 'code',
@@ -333,6 +333,7 @@ ${currentCode.substring(0, 3000)}
     setTimeout(() => {
       this.bus.pulse('system:reincarnation_ready', { trigger: 'evolution', generation: this.generation }, this.name);
     }, 1000);
+    return true;
   }
 
   private selectMutationTarget(): { target: string; file: string } {

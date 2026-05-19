@@ -342,7 +342,6 @@ cf.addEventListener('submit',async function(e){
  bubble('assistant','✨ 思考中...');
  try{
    await fetch('/api/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
-   setTimeout(loadSessions, 1000);
  }catch(e){}
 });
 

@@ -31,7 +31,7 @@ export class NervousSystem extends System {
 TOOL: 工具名
 ARGS: {"参数": "值"}
 
-可用工具: write(写文件), read(读文件), shell(执行命令), web(抓网页), search(搜网络)
+可用工具: write(写文件), read(读文件), rename(移动/重命名), shell(执行命令), web(抓网页), search(搜网络)
 
 你可以修改自己的源码(src/目录)，改完后用 npm run build 编译重启。
 

@@ -104,6 +104,22 @@ export const webFetchTool: Tool = {
 };
 
 // 原生网络搜索工具（无需 API Key，用 DuckDuckGo Lite API）
+export const renameTool: Tool = {
+  name: 'rename',
+  description: 'Rename or move a file or directory. Provide source and destination paths.',
+  async execute(args: Record<string, string>) {
+    const src = args.source || args.from || args.src;
+    const dest = args.destination || args.to || args.dest;
+    if (!src || !dest) return { success: false, output: '', error: 'Need source and destination paths.' };
+    try {
+      await fsPromises.rename(src, dest);
+      return { success: true, output: `Moved ${src} → ${dest}` };
+    } catch (err: any) {
+      return { success: false, output: '', error: `Rename failed: ${err.message}` };
+    }
+  }
+};
+
 export const searchTool: Tool = {
   name: 'search',
   description: 'Search the web for current information. Returns up to 5 result snippets.',
@@ -173,6 +189,7 @@ ToolRegistry.register(readFileTool);
 ToolRegistry.register(webFetchTool);
 ToolRegistry.register(shellTool);
 ToolRegistry.register(searchTool);
+ToolRegistry.register(renameTool);
 
 export function getBuiltinTools(): Tool[] {
   return ToolRegistry.getAll();

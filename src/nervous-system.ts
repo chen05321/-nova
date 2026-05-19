@@ -106,7 +106,7 @@ ARGS: {"参数": "值"}
 
       const adapter = this.llmAdapters[this.currentModel];
       const modelName = adapter.getModelName();
-      const contextPrompt = this.buildContextPrompt();
+      const contextPrompt = await this.buildContextPrompt();
       let fullResponse = '';
 
       // LLM 流式调用（带超时和重试）
@@ -297,10 +297,10 @@ ARGS: {"参数": "值"}
     'MCP插件开发': '- MCP 工具通过 ToolRegistry 注册，命名规范 serverName_toolName',
   };
 
-  private buildContextPrompt(): string {
+  private async buildContextPrompt(): Promise<string> {
     const memories: string[] = [];
 
-    // 只注入最近 2 条学到的东西，不过载
+    // 最近 2 条学到的东西
     const learned = this.memory.getFacts('learned');
     for (const f of learned.slice(-2)) memories.push(`📚 ${f.content}`);
 
@@ -309,9 +309,18 @@ ARGS: {"参数": "值"}
     const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean).slice(0, 5);
     for (const e of activeEffects) memories.push(`⚡ ${e}`);
 
-    const learnedBlock = memories.length > 0 ? `\n\n${memories.join('\n')}` : '';
-    const wasteLevel = this.bus.wasteLevel;
+    // 从记忆系统检索当前对话相关的知识
+    try {
+      const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]?.content || '';
+      if (lastMsg.length > 5) {
+        const related = await this.memory.searchAll(lastMsg, 3);
+        for (const r of related) {
+          if (r.source === 'vector') memories.push(`📎 ${r.text.substring(0, 120)}`);
+        }
+      }
+    } catch {}
 
+    const learnedBlock = memories.length > 0 ? `\n\n${memories.join('\n')}` : '';
     return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}%)${learnedBlock}`;
   }
 

@@ -164,25 +164,23 @@ export class ReproductiveSystem extends System {
     }
 
     // 4. 调用 LLM 生成代码改进
-    const prompt = `你现在是超体的终极进化主控脑。请全盘审计当前 TypeScript 文件的架构缺陷。
+    const prompt = `你是超体 Nova 的进化主控脑。请聚焦优化 ${relPath} 中的一个具体函数/方法。
 
 要求：
-- 你被允许重写该文件的任意函数实现
-- 可以引入更高级的设计模式（单例、依赖注入、状态机等）
-- 必须严格保证全量 TypeScript 编译通过
-- 返回 **Unified Diff 格式**的补丁，只包含修改的行
-- 格式: @@ -行号 +行号 @@ 上下文，用 + 开头标注新增行，- 开头标注删除行
-- 禁止输出完整文件，只输出 diff
+- 只输出你要修改的那个函数的完整新代码，用 \`\`\`typescript ... \`\`\` 包裹
+- 保留函数名和参数签名不变，只改内部实现
+- 必须保证 TypeScript 编译通过
+- 不要输出整个文件，只输出被修改的函数
 
 当前文件: ${relPath}
 ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}
 
-原始代码:
+受影响代码:
 \`\`\`typescript
 ${currentCode.substring(0, 3000)}
 \`\`\`
 
-请返回 Unified Diff 补丁：`;
+请输出你要修改的函数的完整新代码：`;
 
     let improvedCode = '';
     try {
@@ -213,14 +211,39 @@ ${currentCode.substring(0, 3000)}
       return;
     }
 
-    // 提取 diff 补丁内容（支持纯 diff 或 ```diff 包裹）
-    let diffContent = improvedCode;
-    const diffMatch = improvedCode.match(/```(?:diff)?\n?([\s\S]*?)```/);
-    if (diffMatch) diffContent = diffMatch[1].trim();
-    // 如果 LLM 返回的是完整文件而非 diff，回退到全量覆写
-    const isFullFile = !diffContent.includes('@@ ') && !diffContent.includes('---');
-    if (isFullFile) {
-      improvedCode = diffContent; // 当作全量文件处理
+    // 提取函数名，并在原文件中做精准替换
+    const funcMatch = improvedCode.match(/(?:async\s+)?(?:private\s+|public\s+)?(\w+)\s*\(/);
+    let funcName = funcMatch ? funcMatch[1] : '';
+    let finalCode = improvedCode;
+
+    if (funcName && funcName !== 'class') {
+      // 在原文件中找到这个函数并替换
+      const funcRegex = new RegExp(`((?:async\\s+)?(?:private\\s+|public\\s+)?${funcName}\\s*\\([\\s\\S]*?(?:\\n\\})|\\n\\s*\\})`);
+      if (funcRegex.test(currentCode)) {
+        // 用 AST 无关的方式：找到函数定义行和匹配的闭合大括号
+        const lines = currentCode.split('\n');
+        let startLine = -1;
+        let braceCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(funcName + '(') || lines[i].includes(funcName + '<') || lines[i].includes(funcName + ' [')) {
+            startLine = i;
+            break;
+          }
+        }
+        if (startLine >= 0) {
+          const newLines = improvedCode.split('\n');
+          const funcEnd = newLines.length - 1;
+          lines.splice(startLine, 1, ...newLines);
+          finalCode = lines.join('\n');
+          this.log(`🔧 精准替换函数: ${funcName} (${newLines.length} 行)`);
+        }
+      }
+    }
+
+    if (finalCode === improvedCode) {
+      // 无法按函数替换，回退到安全的全量覆盖
+      this.log('⚠️ 无法精确定位函数，采用全量覆写');
+      finalCode = improvedCode;
     }
 
     // 5. Git 沙箱分支进化

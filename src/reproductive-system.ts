@@ -132,10 +132,12 @@ export class ReproductiveSystem extends System {
     let target = '';
     if (errorContext) {
       // 有错误上下文时，用 LLM 精准定位目标文件
+      let locateKey = process.env.OPENCODE_GO_API_KEY || process.env.DEEPSEEK_API_KEY || '';
+      if (!locateKey) try { locateKey = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.hermes', 'auth.json'), 'utf-8'))?.credential_pool?.deepseek?.[0]?.access_token || ''; } catch {}
       const locatePrompt = `分析这个错误信息，判断最可能出问题的源代码文件(src/目录下)。只输出文件名，不要多余的话。\n错误: ${errorContext.substring(0, 300)}`;
-      try {
+      if (locateKey) try {
         const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.getApiKey()}` },
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${locateKey}` },
           body: JSON.stringify({ model: 'deepseek-v4-flash', messages: [{ role: 'user', content: locatePrompt }], max_tokens: 50, temperature: 0.1 }),
           signal: AbortSignal.timeout(10000)
         });

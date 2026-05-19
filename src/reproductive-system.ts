@@ -14,17 +14,24 @@ export class ReproductiveSystem extends System {
   private lastEvolveTime = 0;
 
   async init(): Promise<void> {
-    // 错误累积（保留，用于紧急修复）
-    this.subscribe('system:error', () => this.incrementReadiness(0.1));
+    // 错误累积 + 精准定位
+    this.subscribe('system:error', (data) => {
+      this.incrementReadiness(0.1);
+      const errMsg = (data as any)?.payload?.error || '';
+      if (errMsg) {
+        this.errorHistory.set('system:' + errMsg.substring(0, 50), 3);
+        this.triggerEvolution(errMsg);
+      }
+    });
     this.subscribe('action:failed', (data) => {
       this.incrementReadiness(0.05);
-      // 三振出局：同一工具失败 3 次 → 强制进化
       const tool = (data as any)?.payload?.tool || 'unknown';
+      const error = (data as any)?.payload?.error || '';
       const count = (this.errorHistory.get(tool) || 0) + 1;
       this.errorHistory.set(tool, count);
       if (count >= 3) {
         this.log(`⚡ 三振出局: ${tool} 已失败 ${count} 次，强制进化`);
-        this.triggerEvolution();
+        this.triggerEvolution(`Tool "${tool}" failed: ${error}`);
       }
     });
     this.subscribe('action:completed', (data) => {
@@ -114,14 +121,39 @@ export class ReproductiveSystem extends System {
   }
 
   // 读取错题本 + 分析要改的文件 → 调用LLM生成补丁 → 写文件 → 编译
-  private async triggerEvolution(): Promise<void> {
+  private async triggerEvolution(errorContext: string = ''): Promise<void> {
     if (!this.consumeEnergy(30)) {
       this.log('能量不足，无法进化');
       return;
     }
     this.log('🧬 进化触发！开始分析缺陷并生成补丁...');
 
-    const { target, file: relPath } = this.selectMutationTarget();
+    let relPath = '';
+    let target = '';
+    if (errorContext) {
+      // 有错误上下文时，用 LLM 精准定位目标文件
+      const locatePrompt = `分析这个错误信息，判断最可能出问题的源代码文件(src/目录下)。只输出文件名，不要多余的话。\n错误: ${errorContext.substring(0, 300)}`;
+      try {
+        const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.getApiKey()}` },
+          body: JSON.stringify({ model: 'deepseek-v4-flash', messages: [{ role: 'user', content: locatePrompt }], max_tokens: 50, temperature: 0.1 }),
+          signal: AbortSignal.timeout(10000)
+        });
+        const data = await resp.json() as any;
+        const guess = (data?.choices?.[0]?.message?.content || '').trim().replace(/^src\//, '');
+        const guessPath = path.join(process.cwd(), 'src', guess);
+        if (fs.existsSync(guessPath)) {
+          relPath = 'src/' + guess;
+          target = guess.replace(/\.ts$/, '');
+          this.log(`🎯 LLM 精准定位: ${relPath}`);
+        }
+      } catch {}
+    }
+    if (!relPath) {
+      const result = this.selectMutationTarget();
+      target = result.target;
+      relPath = result.file;
+    }
     const srcFile = path.join(process.cwd(), relPath);
 
     if (!fs.existsSync(srcFile)) {

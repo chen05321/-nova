@@ -416,19 +416,7 @@ ARGS: {"参数": "值"}
     }
   }
 
-  private async integrateMemory(_data: unknown): Promise<void> {
-    try {
-      const knowledgeFacts = this.memory.getFacts('self_knowledge');
-      if (knowledgeFacts.length > 0) {
-        const knowledge = knowledgeFacts.map(f => f.content).join('\n');
-        const basePrompt = this.systemPrompt.split('\n\n---:\n\n')[0];
-        this.systemPrompt = `${basePrompt}\n\n---:\n\n### 自我认知\n${knowledge}`;
-        this.log('已注入自我知识');
-      }
-    } catch (err) {
-      this.log(`自我知识注入失败: ${err}`);
-    }
-  }
+  private async integrateMemory(_data: unknown): Promise<void> {}
   setSystemPrompt(prompt: string): void { this.systemPrompt = prompt; }
 
   getBiometrics(): Biometrics {

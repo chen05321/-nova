@@ -133,8 +133,9 @@ export class MemoryStore {
     save(this.data);
     // 同步写入向量记忆
     if (content.length > 20) {
-      const category = role === 'user' ? 'preference' as const : 'experience' as const;
-      this.liteMemory.add(content.substring(0, 500), category, role);
+      const src = (role === 'user' || role === 'assistant') ? role : 'assistant';
+      const cat = role === 'user' ? 'preference' as const : 'experience' as const;
+      this.liteMemory.add(content.substring(0, 500), cat, src);
     }
   }
 
@@ -148,6 +149,8 @@ export class MemoryStore {
   }
 
   addFact(content: string, category: string, confidence = 0.5): void {
+    // 同步写入向量记忆
+    if (content.length > 10) this.liteMemory.add(content.substring(0, 500), 'fact', 'assistant');
     // Snapshot categories: only keep the latest (update in place)
     const snapshotCats = ['personality', 'wisdom', 'skill_progress', 'knowledge_graph'];
     if (snapshotCats.includes(category)) {
@@ -206,6 +209,31 @@ export class MemoryStore {
 
   getCurrentConversationId(): string {
     return this.currentConvId;
+  }
+
+  // 统一检索：同时搜关键词 + 向量语义
+  async searchAll(query: string, topK = 3): Promise<{ text: string; score: number; source: string }[]> {
+    const results: { text: string; score: number; source: string }[] = [];
+    // 1. 事实记忆（关键词）
+    for (const f of this.getFacts()) {
+      if (f.content.toLowerCase().includes(query.toLowerCase())) {
+        results.push({ text: f.content.substring(0, 200), score: f.confidence, source: 'fact' });
+      }
+    }
+    // 2. 最近对话
+    for (const m of this.getRecentMessages(30)) {
+      if (m.content.toLowerCase().includes(query.toLowerCase())) {
+        results.push({ text: m.content.substring(0, 200), score: 0.5, source: 'chat' });
+      }
+    }
+    // 3. 向量语义检索
+    try {
+      const vecResults = await this.liteMemory.search(query, topK);
+      for (const r of vecResults) {
+        results.push({ text: r.text, score: r.score, source: 'vector' });
+      }
+    } catch {}
+    return results.sort((a, b) => b.score - a.score).slice(0, topK);
   }
 
   // ——— Obsidian 记忆库集成 ———

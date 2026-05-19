@@ -309,16 +309,19 @@ ARGS: {"参数": "值"}
     const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean).slice(0, 5);
     for (const e of activeEffects) memories.push(`⚡ ${e}`);
 
-    // 从记忆系统检索当前对话相关的知识
-    try {
-      const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]?.content || '';
-      if (lastMsg.length > 5) {
-        const related = await this.memory.searchAll(lastMsg, 3);
-        for (const r of related) {
-          if (r.source === 'vector') memories.push(`📎 ${r.text.substring(0, 120)}`);
+      // 从记忆系统检索当前对话相关的知识
+      try {
+        const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]?.content || '';
+        if (lastMsg.length > 5) {
+          const related = await this.memory.searchAll(lastMsg, 3);
+          for (const r of related) {
+            memories.push(`📎 ${r.text.substring(0, 120)}`);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+
+      // 触发自我知识注入
+      this.bus.pulse('memory:recall', { trigger: 'context' }, this.name);
 
     const learnedBlock = memories.length > 0 ? `\n\n${memories.join('\n')}` : '';
     return `${this.systemPrompt}\n(Energy: ${this.bus.getEnergyStats().percent}%)${learnedBlock}`;
@@ -389,17 +392,27 @@ ARGS: {"参数": "值"}
     }
   }
 
-  private async integrateMemory(_data: unknown): Promise<void> {
+  private async integrateMemory(data: unknown): Promise<void> {
     try {
+      // 1. 从 lite-memory 检索相关记忆
+      const trigger = (data as any)?.payload?.trigger || '';
+      if (trigger) {
+        const results = await this.memory.liteMemory.search(trigger, 3);
+        if (results.length > 0) {
+          const knowledge = results.map(r => r.text).join('\n');
+          this.memory.addFact(`[记忆检索] ${knowledge.substring(0, 300)}`, 'self_knowledge', 0.7);
+        }
+      }
+
+      // 2. 注入 self_knowledge 事实到系统提示词
       const knowledgeFacts = this.memory.getFacts('self_knowledge');
       if (knowledgeFacts.length > 0) {
         const knowledge = knowledgeFacts.map(f => f.content).join('\n');
         const basePrompt = this.systemPrompt.split('\n\n---:\n\n')[0];
         this.systemPrompt = `${basePrompt}\n\n---:\n\n### 自我认知\n${knowledge}`;
-        this.log('已注入自我知识');
       }
     } catch (err) {
-      this.log(`自我知识注入失败: ${err}`);
+      this.log(`记忆整合失败: ${err}`);
     }
   }
   setSystemPrompt(prompt: string): void { this.systemPrompt = prompt; }

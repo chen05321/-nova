@@ -119,14 +119,16 @@ ARGS: {"key":"value"}
       const contextPrompt = this.buildContextPrompt();
       let fullResponse = '';
 
-      // 网络中断自动重试（最多 3 次）
-      for (let retries = 0; retries < 3; retries++) {
+      // LLM 流式调用（带超时和重试）
+      for (let retries = 0; retries < 2; retries++) {
         let streamFailed = false;
         fullResponse = '';
         await new Promise<void>((resolveStream) => {
+          const timer = setTimeout(() => { streamFailed = true; resolveStream(); }, 45000);
           const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
           const bias = this.calculateHormoneBias();
           adapter.chatStream(msgs, (chunk, done, isReasoning) => {
+            clearTimeout(timer);
             if (chunk) {
               if (isReasoning) {
                 this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
@@ -139,16 +141,19 @@ ARGS: {"key":"value"}
           }, contextPrompt, bias)
           .catch((err) => {
             streamFailed = true;
-            this.log(`意识链路中断 (重试 ${retries + 1}/3): ${err.message}`);
-            this.bus.pulse('thought:chunk', { chunk: `\n🔄 网络中断，自动重试(${retries + 1}/3)...` }, this.name);
+            this.log(`意识链路中断 (重试 ${retries + 1}/2): ${err.message}`);
+            this.bus.pulse('thought:chunk', { chunk: `\n🔄 网络中断，自动重试(${retries + 1}/2)...` }, this.name);
             resolveStream();
           });
         });
         if (streamFailed) {
-          fullResponse = ''; // 丢弃半截内容
+          fullResponse = '';
           continue;
         }
         break;
+      }
+      if (!fullResponse) {
+        this.bus.pulse('thought:chunk', { chunk: '\n⚠️ LLM 无响应，跳过。' }, this.name);
       }
 
       // 🧠 规划阶段（快速，5 秒超时）
@@ -200,11 +205,11 @@ ARGS: {"key":"value"}
         this.conversationHistory.push({ role: 'assistant', content: cleanInterResponse });
         this.conversationHistory.push({ role: 'user', content: `▶ ${toolName} returned:\n${toolResult.substring(0, 1500)}\n\nContinue.` });
 
-        for (let retries = 0; retries < 3; retries++) {
+        for (let retries = 0; retries < 2; retries++) {
           let streamFailed = false;
           fullResponse = '';
-          await new Promise<void>((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('timeout')), 20000);
+          await new Promise<void>((resolve) => {
+            const t = setTimeout(() => { streamFailed = true; resolve(); }, 30000);
             const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
             adapter.chatStream(msgs, (chunk, done, isReasoning) => {
               clearTimeout(t);
@@ -218,15 +223,16 @@ ARGS: {"key":"value"}
               }
               if (done) resolve();
             }, contextPrompt, this.calculateHormoneBias());
-          }).catch((err) => {
-            streamFailed = true;
-            this.bus.pulse('thought:chunk', { chunk: `\n🔄 工具流中断，自动重试(${retries + 1}/3)...` }, this.name);
           });
           if (streamFailed) {
             fullResponse = ''; // 丢弃半截内容
+            this.bus.pulse('thought:chunk', { chunk: `\n🔄 工具流超时，自动重试(${retries + 1}/2)...` }, this.name);
             continue;
           }
           break;
+        }
+        if (!fullResponse) {
+          this.bus.pulse('thought:chunk', { chunk: '\n⚠️ 工具流异常，跳过继续执行。' }, this.name);
         }
       }
 

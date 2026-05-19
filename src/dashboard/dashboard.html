@@ -446,6 +446,25 @@ async function loadUpgrades() {
   } catch(e){}
 }
 
+// 看板心跳监听：检测 Nova 是否还活着
+var novaStatusEl = document.createElement('div');
+novaStatusEl.id = 'nova-status-bar';
+novaStatusEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;padding:6px;font-size:12px;font-family:monospace;display:none';
+document.body.prepend(novaStatusEl);
+
+setInterval(async function(){
+ try{
+  var r = await fetch('/api/status');
+  if(!r.ok) throw new Error('down');
+  novaStatusEl.style.display = 'none';
+ }catch(e){
+  novaStatusEl.style.display = 'block';
+  novaStatusEl.style.background = '#dc2626';
+  novaStatusEl.style.color = '#fff';
+  novaStatusEl.innerHTML = '⚠️ Nova 已断开连接 — <button onclick="location.reload()" style="background:#fff;color:#dc2626;border:none;border-radius:4px;padding:2px 12px;cursor:pointer;font-size:12px">重新连接</button>';
+ }
+}, 10000);
+
 window.addEventListener('DOMContentLoaded', function(){ 
   loadBrainConfig(); 
   loadTasks(); 

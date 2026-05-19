@@ -31,12 +31,16 @@
     "@anthropic-ai/sdk": "^0.36.0",
     "@modelcontextprotocol/server-puppeteer": "^2025.5.12",
     "@xenova/transformers": "^2.17.2",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.0",
     "events": "^3.3.0",
+    "express": "^5.2.1",
     "openai": "^4.83.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^20.19.41",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.22.0",

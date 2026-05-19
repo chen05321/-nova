@@ -1,18 +1,19 @@
+/**
+ * SelfLearningSystem (Enhanced) — 学习闭环系统
+ *
+ * 原版：学到知识只存 Obsidian，不反馈到知识层
+ * 新版：
+ * 1. 学习结果 → DigestiveSystem 消化 → KnowledgeCore 存储
+ * 2. 知识到达后触发 NervousSystem 分发
+ * 3. 学习计划和跟踪整合到 KnowledgeCore
+ * 4. learnCycle → 知识闭环完整路径
+ */
+
 import { CirculatorySystem } from '../event-bus';
 import { MemoryStore } from '../memory';
 import { ToolRegistry } from '../tools';
-
-interface KnowledgeNode {
-  id: string;
-  title: string;
-  type: 'concept' | 'tool' | 'project' | 'skill';
-  summary: string;
-  source: string;
-  code?: string;
-  connections: string[];
-  createdAt: number;
-  confidence: number;
-}
+import { KnowledgeCore } from '../knowledge-core/index';
+import { KnowledgeNode } from '../types';
 
 interface SkillPlan {
   id: string;
@@ -29,10 +30,12 @@ export class SelfLearningSystem {
   private knowledgeGraph: Map<string, KnowledgeNode> = new Map();
   private skillProgress: Map<string, SkillPlan> = new Map();
   private skills: Map<string, { name: string; description: string; trigger: string; usage: number }> = new Map();
+  private knowledgeCore: KnowledgeCore;
 
   constructor(memory?: MemoryStore) {
     this.bus = CirculatorySystem.getInstance();
     this.memory = memory || new MemoryStore();
+    this.knowledgeCore = KnowledgeCore.getInstance();
     this.loadGraph();
     this.loadSkillProgress();
   }
@@ -52,8 +55,11 @@ export class SelfLearningSystem {
     if (saved.length > 0) { try { const data = JSON.parse(saved[0].content); this.skillProgress = new Map(Object.entries(data)); } catch {} }
   }
 
-  // 动态创建新技能
   private createSkill(name: string, description: string, category: string = 'general'): void {
+    // Dedup: check if same name+description already exists
+    for (const [existingId, existing] of this.skillProgress) {
+      if (existing.name === name && existing.description === description) return;
+    }
     const id = 'skill_' + Date.now().toString(36);
     if (!this.skillProgress.has(id)) {
       this.skillProgress.set(id, { id, name, description, category, learned: false });
@@ -99,8 +105,13 @@ export class SelfLearningSystem {
         this.memory.addFact(`[技能] ${nextSkill.name}: ${nextSkill.description}`, 'skill', 0.8);
         this.memory.addFact(`[学习] 完成技能: ${nextSkill.name}`, 'learned', 0.9);
 
+        // ═══════ 新闭环 ═══════
+        // 1) 写入 Obsidian（保留原有行为）
         const mdBody = `## 技能描述\n${nextSkill.description}\n\n## 演化判定\n解锁时间: ${new Date().toLocaleString()}\n核准状态: 100% 真实通过。`;
         this.memory.writeKnowledgeNote('技能', nextSkill.name, mdBody, ['超体核心', '自动进化', nextSkill.category]);
+
+        // 2) 发送到 KnowledgeCore（新的闭环步骤）
+        this.deliverToKnowledgeCore(nextSkill.name, knowledge, 'skill', nextSkill.category);
 
         this.bus.pulse('learning:complete', { topic: nextSkill.name, summary: `新技能: ${nextSkill.description}` }, 'SelfLearningSystem');
         results.push(nextSkill.name);
@@ -111,7 +122,7 @@ export class SelfLearningSystem {
     const topic = await this.discoverTopic();
     if (!topic) return results;
 
-    // 自动创建新技能：每次学到新知识就创建一个技能
+    // 自动创建新技能
     const cleanTopicName = topic.split(':')[0].trim();
     const skillName = cleanTopicName.length > 30 ? cleanTopicName.substring(0, 30) + '…' : cleanTopicName || topic.substring(0, 30);
     this.createSkill(skillName, `通过学习 ${topic.substring(0, 50)} 获得的技能`, 'auto-discovered');
@@ -123,20 +134,27 @@ export class SelfLearningSystem {
     const cleanTitle = topic.split(':')[0].trim().replace(/\//g, '_');
     const connections = this.findConnections(topic);
 
-    const relatedTitles = connections.map(id => this.knowledgeGraph.get(id)?.title).filter(Boolean) as string[];
+    const relatedTitles = connections.map(id => this.knowledgeGraph.get(id)?.label).filter(Boolean) as string[];
+
+    // Obsidian（保留原有）
     const mdContent = `## 概念知识总括 (Hermes外脑驱动)\n${knowledge}\n\n## 具身工程实操验证 (Practice)\n\`\`\`typescript\n${demo || '// 实操逻辑已就绪'}\n\`\`\``;
     this.memory.writeKnowledgeNote('知识', cleanTitle, mdContent, ['智能觅食', '外脑并网'], relatedTitles);
 
+    // ═══════ 新闭环 ═══════
+    // 3) 学习结果送入 KnowledgeCore
+    this.deliverToKnowledgeCore(topic, knowledge, 'concept', 'auto-discovered');
+
     const node: KnowledgeNode = {
       id: Date.now().toString(36),
-      title: topic,
+      label: topic,
       type: 'concept',
-      summary: knowledge.substring(0, 300),
+      content: knowledge.substring(0, 300),
+      category: 'general',
+      confidence: 0.9,
       source: 'hermes-mcp-learned',
-      code: demo || undefined,
-      connections: connections,
       createdAt: Date.now(),
-      confidence: 0.9
+      lastAccessedAt: Date.now(),
+      accessCount: 1,
     };
 
     this.knowledgeGraph.set(node.id, node);
@@ -152,6 +170,46 @@ export class SelfLearningSystem {
     results.push(topic);
     this.bus.pulse('learning:complete', { topic, summary: knowledge.substring(0, 100) }, 'SelfLearningSystem');
     return results;
+  }
+
+  /** 新方法：将学习结果送入消化管道 */
+  private deliverToKnowledgeCore(topic: string, content: string, type: string, category: string): void {
+    // Directly add to KnowledgeCore (bypasses foraging path)
+    this.knowledgeCore.addEntity(
+      topic,
+      type as any,
+      [content.substring(0, 500)],
+      'SelfLearningSystem',
+      [category],
+      0.8
+    );
+
+    // Fire raw knowledge event for DigestiveSystem to also process
+    this.bus.pulse('knowledge:raw-ingested', {
+      content,
+      source: 'SelfLearningSystem',
+      confidence: 0.8,
+      topic,
+    }, 'SelfLearningSystem');
+
+    // Log knowledge event
+    this.bus.logKnowledgeEvent({
+      id: `learn_${Date.now()}`,
+      type: 'learned',
+      content: topic,
+      sourceSystem: 'SelfLearningSystem',
+      targetSystems: ['DigestiveSystem', 'KnowledgeCore'],
+      categories: [category, type],
+      confidence: 0.8,
+      timestamp: Date.now(),
+    });
+
+    this.bus.pulse('learning:knowledge-ready', {
+      topic,
+      type,
+      category,
+      contentLength: content.length,
+    }, 'SelfLearningSystem');
   }
 
   private async discoverTopic(): Promise<string | null> {
@@ -200,7 +258,7 @@ export class SelfLearningSystem {
   private evolveSkill(topic: string): void {
     const related = Array.from(this.knowledgeGraph.values()).filter(n => {
       const words = topic.toLowerCase().split(/[\s:,-]+/);
-      return words.some(w => w.length > 3 && n.title.toLowerCase().includes(w));
+      return words.some(w => w.length > 3 && n.label.toLowerCase().includes(w));
     });
     const totalConfidence = related.reduce((s, n) => s + n.confidence, 0);
     const nodeCount = related.length + 1;
@@ -218,10 +276,10 @@ export class SelfLearningSystem {
   private findConnections(topic: string): string[] {
     const connections: string[] = [];
     const keywords = topic.toLowerCase().split(/[\s:,-]+/);
-    this.knowledgeGraph.forEach((node) => {
-      const nodeWords = node.title.toLowerCase().split(/[\s:,-]+/);
+    this.knowledgeGraph.forEach((n) => {
+      const nodeWords = n.label.toLowerCase().split(/[\\s:,-]+/);
       const overlap = keywords.filter(w => nodeWords.includes(w) && w.length > 3);
-      if (overlap.length > 0) { connections.push(node.id); }
+      if (overlap.length > 0) { connections.push(n.id); }
     });
     return connections;
   }
@@ -238,7 +296,7 @@ export class SelfLearningSystem {
       learned: learned.length,
       skillsAcquired: skillsList.length,
       nodes: this.knowledgeGraph.size,
-      connections: Array.from(this.knowledgeGraph.values()).reduce((s, n) => s + n.connections.length, 0),
+      connections: this.knowledgeCore.getStats().totalRelations,
       recentLearnings: learned.slice(-10).map(f => f.content.substring(0, 80)),
       skills: skillsList
     };

@@ -93,7 +93,7 @@ export class ReproductiveSystem extends System {
       } catch {}
 
       this.log(`🧬 新知识 "${topic}" 驱动进化迭代`);
-      this.triggerEvolution();
+      this.triggerEvolution(targetFile || topic);
     });
 
     // 持续迭代：每 5 分钟主动自检一次，不管有没有错误
@@ -130,7 +130,11 @@ export class ReproductiveSystem extends System {
 
     let relPath = '';
     let target = '';
-    if (errorContext) {
+    if (errorContext.startsWith('src/')) {
+      relPath = errorContext;
+      target = errorContext.replace('src/', '').replace('.ts', '');
+      this.log(`🎯 知识驱动定位: ${relPath}`);
+    } else if (errorContext) {
       // 有错误上下文时，用 LLM 精准定位目标文件
       let locateKey = process.env.OPENCODE_GO_API_KEY || process.env.DEEPSEEK_API_KEY || '';
       if (!locateKey) try { locateKey = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.hermes', 'auth.json'), 'utf-8'))?.credential_pool?.deepseek?.[0]?.access_token || ''; } catch {}

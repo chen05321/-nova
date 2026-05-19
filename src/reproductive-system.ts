@@ -14,14 +14,11 @@ export class ReproductiveSystem extends System {
   private lastEvolveTime = 0;
 
   async init(): Promise<void> {
-    // 错误累积 + 精准定位
+    // 错误累积（只计数不自动触发，Nova 自己决定是否进化）
     this.subscribe('system:error', (data) => {
       this.incrementReadiness(0.1);
       const errMsg = (data as any)?.payload?.error || '';
-      if (errMsg) {
-        this.errorHistory.set('system:' + errMsg.substring(0, 50), 3);
-        this.triggerEvolution(errMsg);
-      }
+      if (errMsg) this.errorHistory.set('system:' + errMsg.substring(0, 50), 3);
     });
     this.subscribe('action:failed', (data) => {
       this.incrementReadiness(0.05);
@@ -30,8 +27,8 @@ export class ReproductiveSystem extends System {
       const count = (this.errorHistory.get(tool) || 0) + 1;
       this.errorHistory.set(tool, count);
       if (count >= 3) {
-        this.log(`⚡ 三振出局: ${tool} 已失败 ${count} 次，强制进化`);
-        this.triggerEvolution(`Tool "${tool}" failed: ${error}`);
+        this.log(`⚡ 三振出局: ${tool} 已失败 ${count} 次`);
+        this.bus.pulse('evolution:ready', { reason: `工具 ${tool} 连续失败 ${count} 次: ${error}` }, this.name);
       }
     });
     this.subscribe('action:completed', (data) => {
@@ -75,25 +72,13 @@ export class ReproductiveSystem extends System {
     this.subscribe('learning:complete', (data) => {
       this.incrementReadiness(0.15);
       const topic = (data as any)?.payload?.topic || '';
-      if (!topic || Date.now() - this.lastEvolveTime < 120000) return;
-
-      // 分类知识到对应的系统
+      if (!topic) return;
+      // 知识分类 → 发射 readiness 信号，让 Nova 自己决定
       let targetFile = '';
       for (const [keyword, mapping] of Object.entries(knowledgeMap)) {
-        if (topic.toLowerCase().includes(keyword)) {
-          targetFile = mapping.file;
-          this.log(`🧬 知识分类: "${topic}" → ${mapping.system} (${mapping.file})`);
-          break;
-        }
+        if (topic.toLowerCase().includes(keyword)) { targetFile = mapping.file; break; }
       }
-      // 写 Obsidian 笔记标注系统归属
-      try {
-        const notePath = path.join(os.homedir(), '.nova-vault', '知识', `系统关联_${Date.now().toString(36)}.md`);
-        fs.writeFileSync(notePath, `# 知识-系统关联\n\n知识: ${topic}\n关联系统: ${targetFile || '未分类'}\n时间: ${new Date().toLocaleString()}\n`, 'utf-8');
-      } catch {}
-
-      this.log(`🧬 新知识 "${topic}" 驱动进化迭代`);
-      this.triggerEvolution(targetFile || topic);
+      this.bus.pulse('evolution:ready', { topic, targetFile, readiness: this.evolutionReadiness }, this.name);
     });
 
     // 持续迭代（暂时禁用，避免自动重构失控）

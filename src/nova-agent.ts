@@ -524,6 +524,23 @@ export class NovaAgent {
     return this.bus.getEventLog();
   }
 
+  // Nova 主动决定是否进化 — 取代生殖系统的被动触发
+  async decideEvolution(reason: string, targetFile?: string): Promise<boolean> {
+    this.bus.pulse('thought:chunk', { chunk: `\n🧬 评估是否需要进化: ${reason.substring(0, 80)}...` }, 'NovaAgent');
+    try {
+      const result = await this.reproductive.triggerEvolution(reason, targetFile);
+      if (result) {
+        this.bus.pulse('thought:chunk', { chunk: '\n✅ 进化完成' }, 'NovaAgent');
+      } else {
+        this.bus.pulse('thought:chunk', { chunk: '\n⏭ 无需进化' }, 'NovaAgent');
+      }
+      return result;
+    } catch (err: any) {
+      this.bus.pulse('thought:chunk', { chunk: `\n❌ 进化失败: ${err.message}` }, 'NovaAgent');
+      return false;
+    }
+  }
+
   private async scheduleLearnCycle(): Promise<void> {
     const run = async () => {
       try {

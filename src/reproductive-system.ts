@@ -96,8 +96,8 @@ export class ReproductiveSystem extends System {
       this.triggerEvolution(targetFile || topic);
     });
 
-    // 持续迭代：每 5 分钟主动自检一次，不管有没有错误
-    setInterval(() => this.continuousIteration(), 300000);
+    // 持续迭代（暂时禁用，避免自动重构失控）
+    // setInterval(() => this.continuousIteration(), 300000);
 
     this.initialized = true;
     this.log(`Reproductive system initialized (generation ${this.generation})`);
@@ -209,6 +209,8 @@ export class ReproductiveSystem extends System {
 - 保留函数名和参数签名不变，只改内部实现
 - 必须保证 TypeScript 编译通过
 - 不要输出整个文件，只输出被修改的函数
+- 严禁创建新目录、新文件或移动已有文件
+- 严禁修改项目结构或目录组织
 
 当前文件: ${relPath}
 ${errorLog ? `\n最近错误日志:\n${errorLog}\n` : ''}

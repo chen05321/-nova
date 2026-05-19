@@ -58,7 +58,7 @@ export const readFileTool: Tool = {
     if (!file) return { success: false, output: '', error: 'Missing path target parameters.' };
 
     try {
-      const content = await fsPromises.readFile(file, 'utf-8');
+      const content = require('fs').readFileSync(file, 'utf-8');
       return { success: true, output: content };
     } catch (err: any) {
       return { success: false, output: '', error: `IO Read Exception: ${err.message}` };

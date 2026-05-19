@@ -54,11 +54,15 @@ let pendingSave: MemoryFile | null = null;
 function save(data: MemoryFile): void {
   pendingSave = data;
   if (saveTimer) return; // debounce: wait for pending write
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(async () => {
     if (pendingSave) {
       ensureDir();
-      fs.writeFileSync(MEMORY_FILE, JSON.stringify(pendingSave, null, 2));
-      pendingSave = null;
+      try {
+        await fs.promises.writeFile(MEMORY_FILE, JSON.stringify(pendingSave, null, 2), 'utf-8');
+        pendingSave = null;
+      } catch (err) {
+        console.error('[内存] 异步写盘失败:', err);
+      }
     }
     saveTimer = null;
   }, 3000);

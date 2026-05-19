@@ -87,14 +87,20 @@ export class AgentLoop {
       text: `[Objective]\n${objective}\n\nUse tools as needed. Reply with FINAL: when done.`
     }, 'AgentLoop');
     return new Promise((resolve) => {
+      let isSettled = false;
       const timeout = setTimeout(() => {
+        if (isSettled) return;
+        isSettled = true;
         this.bus.removeListener('agent:response', handler);
         this.running = false;
         resolve('Agent 长考超时熔断保护，请精简需求重试。');
       }, 300000);
       const handler = (event: any) => {
         if (event.origin === 'NervousSystem') {
+          if (isSettled) return;
+          isSettled = true;
           clearTimeout(timeout);
+          this.bus.removeListener('agent:response', handler);
           this.running = false;
           this.bus.pulse('agent:status', { type: 'complete' }, 'AgentLoop');
           resolve(event.payload?.response || 'No response');

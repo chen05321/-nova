@@ -121,13 +121,20 @@ export const shellTool: Tool = {
     const command = args.command || args.cmd || Object.values(args)[0];
     if (!command) return { success: false, output: '', error: 'Execution denied: No explicit shell instructions parsed.' };
 
-    if (command.includes('rm -rf /') || command.includes(':(){ :|& };:')) {
-      return { success: false, output: '', error: 'Security Interception: Destructive payload blocked.' };
+    const dangerousPatterns = [
+      /rm\s+-rf/, /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;\s*:/, /mkfs/, /dd\s+if=/,
+      />\s*\/dev\/sd/, /chmod\s+777\s+\//, /wget.*\|\s*bash/, /curl.*\|\s*bash/,
+      /;\s*rm/, /\|\s*rm/, /&\s*rm/
+    ];
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(command)) {
+        return { success: false, output: '', error: `Security Interception: [${pattern.source}] blocked.` };
+      }
     }
 
     return new Promise((resolve) => {
       const safeEnv = { ...process.env, PATH: process.env.PATH || '/usr/bin:/bin:/usr/sbin:/sbin' };
-      exec(command, { env: safeEnv, timeout: 15000 }, (error, stdout, stderr) => {
+      exec(command, { env: safeEnv, timeout: 20000 }, (error, stdout, stderr) => {
         if (error) {
           resolve({ success: false, output: '', error: stderr || error.message });
         } else {

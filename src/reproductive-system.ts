@@ -253,21 +253,11 @@ ${currentCode.substring(0, 3000)}
       try { execSync(`git stash 2>/dev/null; git checkout -b ${branchName}`, { cwd: process.cwd(), timeout: 10000, encoding: 'utf-8' }); } catch {}
     }
 
-    // 6. 应用补丁（diff 模式用 patch，全量模式直接写）
+    // 6. 写入修改后的代码
     try {
-      if (isFullFile) {
-        fs.writeFileSync(srcFile, improvedCode, 'utf-8');
-      } else {
-        const diffPath = path.join(process.cwd(), `.evolution_diff_${Date.now()}.patch`);
-        fs.writeFileSync(diffPath, diffContent, 'utf-8');
-        try {
-          execSync(`patch "${srcFile}" "${diffPath}" 2>&1`, { cwd: process.cwd(), timeout: 10000, encoding: 'utf-8' });
-        } finally {
-          try { fs.unlinkSync(diffPath); } catch {}
-        }
-      }
+      fs.writeFileSync(srcFile, finalCode, 'utf-8');
     } catch (err: any) {
-      this.log(`进化: 应用补丁失败: ${err.message}`);
+      this.log(`进化: 写文件失败: ${err.message}`);
       if (isGitRepo) try { execSync(`git checkout main && git branch -D ${branchName} 2>/dev/null`, { cwd: process.cwd() }); } catch {}
       return;
     }

@@ -16,16 +16,29 @@ export class DigestiveSystem extends System {
   }
 
   private async ingest(data: unknown): Promise<void> {
-    // Extract actual content from event payload
     const payload = (data as any)?.payload || data;
     const content = typeof payload === 'object' ? JSON.stringify(payload) : String(payload);
-    const id = `knowledge_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    if (content.length < 5) return; // 太短的直接丢弃
 
+    // 质量评分：代码/知识内容越丰富，评分越高
+    let quality = 0.3;
+    if (content.length > 100) quality += 0.2;
+    if (content.length > 500) quality += 0.2;
+    if (/import|export|function|class|interface|def |FROM|SELECT/i.test(content)) quality += 0.2; // 代码特征
+    if (/```|{[\s\S]*}|<[\w]+>/.test(content)) quality += 0.1; // 结构特征
+    if (content.length < 20) quality = 0.1; // 太短的垃圾代码
+
+    // 低质量内容直接排掉
+    if (quality < 0.3) {
+      this.bus.addWaste('stale', 1);
+      this.log(`🧹 消化系统过滤低质内容 (${content.substring(0, 30)}...)`);
+      return;
+    }
+
+    const id = `knowledge_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const fragment: KnowledgeFragment = {
-      id,
-      content,
-      source: 'perception',
-      confidence: 0.5,
+      id, content, source: 'perception',
+      confidence: Math.min(0.9, quality),
       timestamp: Date.now()
     };
 
@@ -33,8 +46,8 @@ export class DigestiveSystem extends System {
     this.digestionQueue.push(id);
     this.nutrientLevel = Math.min(1, this.nutrientLevel + 0.1);
 
-    this.bus.pulse('digestion:ingested', { id, contentLength: content.length }, this.name);
-    this.log(`Ingested knowledge fragment: ${id}`);
+    this.bus.pulse('digestion:ingested', { id, contentLength: content.length, quality }, this.name);
+    this.log(`消化吸收: ${id} (质量: ${quality.toFixed(2)})`);
   }
 
   private async digestCycle(): Promise<void> {

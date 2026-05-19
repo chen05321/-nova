@@ -39,7 +39,11 @@ export const writeFileTool: Tool = {
 
     try {
       await fsPromises.writeFile(file, content || '', 'utf-8');
-      return { success: true, output: `Successfully committed mutations at [${file}].` };
+      let verifyMsg = '';
+      if (file.endsWith('.json')) {
+        try { JSON.parse(content); verifyMsg = ' ✓ JSON语法验证通过'; } catch {}
+      }
+      return { success: true, output: `Successfully committed mutations at [${file}].${verifyMsg}` };
     } catch (err: any) {
       return { success: false, output: '', error: `IO Write Exception: ${err.message}` };
     }

@@ -374,6 +374,14 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      if (url.pathname === '/api/conv/del' && req.method === 'POST') {
+        const id = url.searchParams.get('id') || '';
+        const memory = (agent as any).memory;
+        if (memory && memory.deleteConversation) { memory.deleteConversation(id); json({ ok: true }); return; }
+        json({ ok: false }, 400);
+        return;
+      }
+
       // Tasks
       if (url.pathname === '/api/tasks') {
         const taskFile = path.join(require('os').homedir(), '.nova', 'tasks.json');

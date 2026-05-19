@@ -104,6 +104,17 @@ export class MemoryStore {
     }
   }
 
+  deleteConversation(id: string): void {
+    this.data.conversations = this.data.conversations.filter(c => c.id !== id);
+    if (this.data.conversations.length === 0) {
+      this.createConversation('default');
+    }
+    if (this.currentConvId === id) {
+      this.currentConvId = this.data.conversations[0]?.id || '';
+    }
+    save(this.data);
+  }
+
   addMessage(role: 'user' | 'assistant' | 'system', content: string, tokens?: number): void {
     const conv = this.data.conversations.find(c => c.id === this.currentConvId);
     if (!conv) return;

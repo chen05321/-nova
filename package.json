@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc && cp src/dashboard/dashboard.html dist/dashboard/",
-    "start": "node dist/cli/index.js",
+    "start": "node --max-old-space-size=512 dist/cli/index.js",
     "dev": "npx tsx src/cli/index.ts",
     "prepublishOnly": "npm run build"
   },

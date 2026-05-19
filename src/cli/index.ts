@@ -1,12 +1,35 @@
 #!/usr/bin/env node
 process.on('unhandledRejection', (err) => console.error('[安全阀] 未捕获的异常:', (err as any)?.message || err));
+
+// 物理内存看门狗：每 10 分钟检查系统 swap 和进程内存
+setInterval(() => {
+  try {
+    const mem = process.memoryUsage();
+    const heapMB = Math.round(mem.heapUsed / 1024 / 1024);
+    const rssMB = Math.round(mem.rss / 1024 / 1024);
+    if (heapMB > 400 || rssMB > 800) {
+      console.log(`[内存看门狗] ⚠️ 内存过高 (RSS:${rssMB}MB 堆:${heapMB}MB)，触发安全重启`);
+      process.exit(0);
+    }
+    // 检查系统 swap（macOS 专用）
+    const swapOutput = require('child_process').execSync('sysctl vm.swapusage 2>/dev/null', { encoding: 'utf-8' });
+    const usedMatch = swapOutput.match(/used\s*=\s*(\d+)/);
+    if (usedMatch) {
+      const swapMB = parseInt(usedMatch[1]);
+      if (swapMB > 1024) {
+        console.log(`[内存看门狗] ⚠️ 系统 Swap 过高 (${swapMB}MB)，触发安全重启`);
+        process.exit(0);
+      }
+    }
+  } catch {}
+}, 600000);
 process.on('uncaughtException', (err) => {
   console.error('[安全阀] 致命错误:', err.message);
   console.error(err.stack?.substring(0, 500));
   console.log('[安全阀] 5 秒后自动重启...');
   setTimeout(() => {
     const { execSync } = require('child_process');
-    try { execSync('node ' + process.argv[1] + ' &', { cwd: process.cwd() }); } catch {}
+    try { execSync('node --max-old-space-size=512 ' + process.argv[1] + ' &', { cwd: process.cwd() }); } catch {}
     process.exit(1);
   }, 5000);
 });

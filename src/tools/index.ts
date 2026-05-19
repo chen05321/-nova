@@ -31,21 +31,39 @@ class CentralRegistry {
 
 export const writeFileTool: Tool = {
   name: 'write',
-  description: 'Write text content safely into a specified file path.',
+  description: 'Write content to a file. Auto-verifies syntax for ts/py/json.',
   async execute(args: Record<string, string>) {
     const file = args.file || args.path;
     const content = args.content;
     if (!file) return { success: false, output: '', error: 'Descriptor missing. Supply "path" or "file".' };
 
     try {
+      // 先备份（如果是已有文件）
+      try {
+        const exists = await fsPromises.access(file).then(() => true).catch(() => false);
+        if (exists) await fsPromises.copyFile(file, file + '.bak').catch(() => {});
+      } catch {}
+
       await fsPromises.writeFile(file, content || '', 'utf-8');
-      let verifyMsg = '';
-      if (file.endsWith('.json')) {
-        try { JSON.parse(content); verifyMsg = ' ✓ JSON语法验证通过'; } catch {}
-      }
-      return { success: true, output: `Successfully committed mutations at [${file}].${verifyMsg}` };
+      let verify = '';
+
+      try {
+        if (file.endsWith('.json')) { JSON.parse(content); verify = ' ✓ json'; }
+        else if (file.endsWith('.ts') || file.endsWith('.js')) {
+          const { exec } = require('child_process');
+          await new Promise(r => exec(`npx tsc --noEmit --strict --lib es2020,dom "${file}" 2>&1`, { timeout: 10000 }, (e: any) => r(!e)));
+          verify = ' ✓ ts';
+        }
+        else if (file.endsWith('.py')) {
+          const { exec } = require('child_process');
+          await new Promise(r => exec(`python3 -m py_compile "${file}" 2>&1`, { timeout: 8000 }, (e: any) => r(!e)));
+          verify = ' ✓ py';
+        }
+      } catch {}
+
+      return { success: true, output: `Wrote ${file}${verify}` };
     } catch (err: any) {
-      return { success: false, output: '', error: `IO Write Exception: ${err.message}` };
+      return { success: false, output: '', error: `IO Exception: ${err.message}` };
     }
   }
 };

@@ -156,7 +156,9 @@ ARGS: {"key":"value"}
         this.bus.pulse('thought:chunk', { chunk: '\n⚠️ LLM 无响应，跳过。' }, this.name);
       }
 
-      // 🧠 规划阶段（快速，5 秒超时）
+    // 🧠 规划阶段：只有涉及工具调用时才走规划
+    const needsPlanning = /读取|写入|搜索|下载|安装|修改|删除|执行|编译|创建|分析|比较|转换|抓取|下载|爬虫|计算|统计|排序|过滤|备份|部署|配置|git|npm|pip|shell|TOOL/i.test(text);
+    if (needsPlanning) {
       try {
         this.bus.pulse('thought:chunk', { chunk: '\n🧠 规划中...' }, this.name);
         const planPrompt = `将以下请求拆为 1-3 步，每行 "步骤N: 做什么"，不要多余的话:\n\n${text}`;
@@ -170,6 +172,7 @@ ARGS: {"key":"value"}
           this.bus.pulse('thought:chunk', { chunk: `\n📋 ${planLines.join(' → ')}` }, this.name);
         }
       } catch {}
+    }
 
       this.processingState = 'acting';
       let toolIterations = 0;

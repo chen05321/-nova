@@ -110,11 +110,20 @@ ARGS: {"参数": "值"}
         let streamFailed = false;
         fullResponse = '';
         await new Promise<void>((resolveStream) => {
-          const timer = setTimeout(() => { streamFailed = true; resolveStream(); }, 45000);
+          let chunkTimer: ReturnType<typeof setTimeout>;
+          const resetChunkWatchdog = () => {
+            clearTimeout(chunkTimer);
+            chunkTimer = setTimeout(() => {
+              this.log('🚨 大模型流式输出超过 8 秒未响应，触发防假死熔断');
+              this.bus.pulse('thought:chunk', { chunk: '\n⚠️ 响应超时，自动收尾...' }, this.name);
+              resolveStream();
+            }, 8000);
+          };
+          resetChunkWatchdog();
           const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
           const bias = this.calculateHormoneBias();
           adapter.chatStream(msgs, (chunk, done, isReasoning) => {
-            clearTimeout(timer);
+            resetChunkWatchdog();
             if (chunk) {
               if (isReasoning) {
                 this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
@@ -123,9 +132,10 @@ ARGS: {"参数": "值"}
                 this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
               }
             }
-            if (done) resolveStream();
+            if (done) { clearTimeout(chunkTimer); resolveStream(); }
           }, contextPrompt, bias)
           .catch((err) => {
+            clearTimeout(chunkTimer);
             streamFailed = true;
             this.log(`意识链路中断 (重试 ${retries + 1}/2): ${err.message}`);
             this.bus.pulse('thought:chunk', { chunk: `\n🔄 网络中断，自动重试(${retries + 1}/2)...` }, this.name);
@@ -198,10 +208,18 @@ ARGS: {"参数": "值"}
           let streamFailed = false;
           fullResponse = '';
           await new Promise<void>((resolve) => {
-            const t = setTimeout(() => { streamFailed = true; resolve(); }, 30000);
+            let chunkTimer: ReturnType<typeof setTimeout>;
+            const resetChunkWatchdog = () => {
+              clearTimeout(chunkTimer);
+              chunkTimer = setTimeout(() => {
+                this.log('🚨 工具流 8 秒无响应，触发防假死熔断');
+                resolve();
+              }, 8000);
+            };
+            resetChunkWatchdog();
             const msgs = this.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
             adapter.chatStream(msgs, (chunk, done, isReasoning) => {
-              clearTimeout(t);
+              resetChunkWatchdog();
               if (chunk) {
                 if (isReasoning) {
                   this.bus.pulse('thought:chunk', { chunk, isReasoning: true }, this.name);
@@ -210,7 +228,7 @@ ARGS: {"参数": "值"}
                   this.bus.pulse('thought:chunk', { chunk, full: fullResponse, isReasoning: false }, this.name);
                 }
               }
-              if (done) resolve();
+              if (done) { clearTimeout(chunkTimer); resolve(); }
             }, contextPrompt, this.calculateHormoneBias());
           });
           if (streamFailed) {

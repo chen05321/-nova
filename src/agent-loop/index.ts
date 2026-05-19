@@ -90,8 +90,8 @@ export class AgentLoop {
       const timeout = setTimeout(() => {
         this.bus.removeListener('agent:response', handler);
         this.running = false;
-        resolve('Agent response timeout');
-      }, 120000);
+        resolve('Agent 长考超时熔断保护，请精简需求重试。');
+      }, 300000);
       const handler = (event: any) => {
         if (event.origin === 'NervousSystem') {
           clearTimeout(timeout);

@@ -519,8 +519,8 @@ export class NovaAgent {
         const msg = err instanceof Error ? err.message : String(err);
         this.bus.pulse('learning:cycle', { error: msg }, 'NovaAgent');
       }
-      setTimeout(run, 120000);
+      setTimeout(run, 240000);
     };
-    setTimeout(run, 120000);
+    setTimeout(run, 240000);
   }
 }

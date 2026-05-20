@@ -339,15 +339,48 @@ cf.addEventListener('submit',async function(e){
  }catch(e){}
 });
 
-var bs=null;
+var bs=new EventSource('/api/biometrics-stream');
+bs.onmessage=function(e){
+ try{
+  var d=JSON.parse(e.data);
+  document.getElementById('growth-stage').innerText=d.stage;
+  document.getElementById('wisdom-score').innerText=d.wisdom||0;
+  var sec=Math.floor(d.uptime/1000);
+  document.getElementById('uptime').innerText=String(Math.floor(sec/3600)).padStart(2,'0')+':'+String(Math.floor((sec%3600)/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+  document.getElementById('energy-bar').style.width=d.energy.percent+'%';
+  document.getElementById('energy-mode').innerText=d.energy.mode;
+  document.getElementById('heart-rate').innerText=d.heart.heartRate;
+  document.getElementById('energy-debt').innerText=d.energy.debt||0;
+  document.getElementById('toxin-level').innerText=d.waste.total+'%';
+  (d.biometrics||[]).forEach(function(s){
+   if(s.name==='Nervous'){document.getElementById('cognitive-load').innerText=s.load.toFixed(2);document.getElementById('current-model-name').innerText=s.metadata?.modelName||'?';}
+   if(s.name==='Respiratory'){document.getElementById('token-status').innerText=Math.floor((s.metadata?.tokensRemaining||0))+' / '+(s.metadata?.capacity||10000);}
+   if(s.name==='Endocrine'){var h=s.metadata?.hormones||{};['adrenaline','cortisol','dopamine'].forEach(function(k){var v=h[k]||0;var el=document.getElementById('h-'+k);if(el)el.innerText=v.toFixed(2);});}
+  });
+ }catch(e){}
+};
 
-function renderUpgrade(upgrades) {
-  var shop = document.getElementById('upgrade-shop');
-  if (!shop) return;
-  if (!upgrades || upgrades.length === 0) {
-    shop.innerHTML = '<div class="text-slate-600 text-[11px] text-center py-4">暂无可用升级</div>';
-    return;
-  }
+var pl=new EventSource('/api/event-bus-pulse');
+pl.addEventListener('thought:chunk',function(e){
+ try{var d=JSON.parse(e.data);if(d.chunk){tc.innerText=d.chunk;if(!d.isReasoning&&ab){ab.innerText+=d.chunk;cv.scrollTop=cv.scrollHeight}}}catch(e){}
+});
+pl.addEventListener('thought:perceived',function(){if(!ab)bubble('assistant','✨ 思考中...');});
+pl.addEventListener('learning:cycle',function(e){try{var d=JSON.parse(e.data);tc.innerText=d.message||tc.innerText}catch(e){}});
+pl.addEventListener('hormone:shift',function(e){
+ try{var d=JSON.parse(e.data);var bar=document.getElementById('b-'+d.type);var txt=document.getElementById('h-'+d.type);if(bar)bar.style.width=(d.level*100)+'%';if(txt)txt.innerText=d.level.toFixed(2)}catch(e){}
+});
+
+async function loadUpgrades() {
+  try { var r = await fetch('/api/status'); var d = await r.json(); renderUpgrade(d.availableUpgrades||[]); } catch(e){}
+}
+
+var novaStatusEl=document.createElement('div');
+novaStatusEl.id='nova-status-bar';
+novaStatusEl.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;padding:6px;font-size:12px;font-family:monospace;display:none';
+document.body.prepend(novaStatusEl);
+setInterval(async function(){
+ try{var r=await fetch('/api/status');if(!r.ok)throw Error('down');novaStatusEl.style.display='none'}catch(e){novaStatusEl.style.display='block';novaStatusEl.style.background='#dc2626';novaStatusEl.style.color='#fff';novaStatusEl.innerHTML='⚠️ Nova 已断开连接 — <button onclick="location.reload()" style="background:#fff;color:#dc2626;border:none;border-radius:4px;padding:2px 12px;cursor:pointer;font-size:12px">重新连接</button>'}
+},10000);
   shop.innerHTML = upgrades.map(function(u){
     var applied = u.applied ? 'opacity-50' : '';
     return '<div class="bg-black/30 p-2 rounded-xl border border-slate-800 flex flex-col gap-1 '+applied+'">' +

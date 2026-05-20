@@ -1,0 +1,216 @@
+import * as fsPromises from 'fs/promises';
+import { exec } from 'child_process';
+import { MemoryStore } from '../memory/index';
+
+export interface ToolResult {
+  success: boolean;
+  output: string;
+  error?: string;
+}
+
+export interface Tool {
+  name: string;
+  description: string;
+  execute(args: Record<string, string>): Promise<ToolResult>;
+}
+
+class CentralRegistry {
+  private tools = new Map<string, Tool>();
+
+  public register(tool: Tool): void {
+    this.tools.set(tool.name, tool);
+  }
+
+  public find(name: string): Tool | undefined {
+    return this.tools.get(name);
+  }
+
+  public getAll(): Tool[] {
+    return Array.from(this.tools.values());
+  }
+}
+
+export const writeFileTool: Tool = {
+  name: 'write',
+  description: 'Write content to a file. Auto-verifies syntax for ts/py/json.',
+  async execute(args: Record<string, string>) {
+    const file = args.file || args.path;
+    const content = args.content;
+    if (!file) return { success: false, output: '', error: 'Descriptor missing. Supply "path" or "file".' };
+
+    try {
+      // 先备份（如果是已有文件）
+      try {
+        const exists = await fsPromises.access(file).then(() => true).catch(() => false);
+        if (exists) await fsPromises.copyFile(file, file + '.bak').catch(() => {});
+      } catch {}
+
+      await fsPromises.writeFile(file, content || '', 'utf-8');
+      let verify = '';
+
+      try {
+        if (file.endsWith('.json')) { JSON.parse(content); verify = ' ✓ json'; }
+        else if (file.endsWith('.js')) {
+          const { exec } = require('child_process');
+          await new Promise(r => exec(`node -c "${file}" 2>&1`, { timeout: 5000 }, (e: any) => r(!e)));
+          verify = ' ✓ js';
+        }
+        else if (file.endsWith('.py')) {
+          const { exec } = require('child_process');
+          await new Promise(r => exec(`python3 -m py_compile "${file}" 2>&1`, { timeout: 8000 }, (e: any) => r(!e)));
+          verify = ' ✓ py';
+        }
+      } catch {}
+
+      return { success: true, output: `Wrote ${file}${verify}` };
+    } catch (err: any) {
+      return { success: false, output: '', error: `IO Exception: ${err.message}` };
+    }
+  }
+};
+
+export const readFileTool: Tool = {
+  name: 'read',
+  description: 'Read the complete text strings from a specific local file path.',
+  async execute(args: Record<string, string>) {
+    const file = args.path || args.file || args.command;
+    if (!file) return { success: false, output: '', error: 'Missing path target parameters.' };
+
+    try {
+      const content = require('fs').readFileSync(file, 'utf-8');
+      return { success: true, output: content };
+    } catch (err: any) {
+      return { success: false, output: '', error: `IO Read Exception: ${err.message}` };
+    }
+  }
+};
+
+export const webFetchTool: Tool = {
+  name: 'web',
+  description: 'Fetch and scrub the text layout from an external HTTP/HTTPS URL address.',
+  async execute(args: Record<string, string>) {
+    const url = args.url || args.path;
+    if (!url) return { success: false, output: '', error: 'Missing destination URL address.' };
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!response.ok) return { success: false, output: '', error: `HTTP network anomaly: ${response.status}` };
+      const rawText = await response.text();
+      const cleanText = rawText.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').substring(0, 3000);
+      return { success: true, output: cleanText };
+    } catch (err: any) {
+      return { success: false, output: '', error: `Network Exception: ${err.message}` };
+    }
+  }
+};
+
+// 原生网络搜索工具（无需 API Key，用 DuckDuckGo Lite API）
+export const renameTool: Tool = {
+  name: 'rename',
+  description: 'Rename or move a file or directory. Provide source and destination paths.',
+  async execute(args: Record<string, string>) {
+    const src = args.source || args.from || args.src;
+    const dest = args.destination || args.to || args.dest;
+    if (!src || !dest) return { success: false, output: '', error: 'Need source and destination paths.' };
+    try {
+      await fsPromises.rename(src, dest);
+      return { success: true, output: `Moved ${src} → ${dest}` };
+    } catch (err: any) {
+      return { success: false, output: '', error: `Rename failed: ${err.message}` };
+    }
+  }
+};
+
+export const searchTool: Tool = {
+  name: 'search',
+  description: 'Search the web for current information. Returns up to 5 result snippets.',
+  async execute(args: Record<string, string>) {
+    const query = args.query || args.q;
+    if (!query) return { success: false, output: '', error: 'Missing search query.' };
+    try {
+      const resp = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      const html = await resp.text();
+      const results: string[] = [];
+      const linkRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+      let m;
+      let count = 0;
+      while ((m = linkRegex.exec(html)) !== null && count < 8) {
+        const url = m[1];
+        const text = m[2].trim();
+        if (url && text && !url.startsWith('/') && url.startsWith('http')) {
+          results.push(`${text}: ${url}`);
+          count++;
+        }
+      }
+      const output = results.length > 0 ? results.join('\n') : '未找到相关结果。';
+      return { success: true, output };
+    } catch (err: any) {
+      return { success: false, output: '', error: `搜索失败: ${err.message}` };
+    }
+  }
+};
+
+export const memsearchTool: Tool = {
+  name: 'memsearch',
+  description: 'Search Nova\'s own memory (conversations, facts, vector store). Returns relevant past knowledge.',
+  async execute(args: Record<string, string>) {
+    const query = args.query || args.q;
+    if (!query) return { success: false, output: '', error: 'Missing search query.' };
+    try {
+      const mem = new MemoryStore();
+      const results = await mem.searchAll(query, 5);
+      if (results.length === 0) return { success: true, output: '未找到相关记忆。' };
+      const output = results.map((r, i) => `[${i + 1}] (${r.source}) ${r.text}`).join('\n\n');
+      return { success: true, output };
+    } catch (err: any) {
+      return { success: false, output: '', error: `Memory search failed: ${err.message}` };
+    }
+  }
+};
+
+export const shellTool: Tool = {
+  name: 'shell',
+  description: 'Execute white-listed system shell commands safely.',
+  async execute(args: Record<string, string>) {
+    const command = args.command || args.cmd || Object.values(args)[0];
+    if (!command) return { success: false, output: '', error: 'Execution denied: No explicit shell instructions parsed.' };
+
+    const dangerousPatterns = [
+      /rm\s+-rf/, /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;\s*:/, /mkfs/, /dd\s+if=/,
+      />\s*\/dev\/sd/, /chmod\s+777\s+\//, /wget.*\|\s*bash/, /curl.*\|\s*bash/,
+      /;\s*rm/, /\|\s*rm/, /&\s*rm/
+    ];
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(command)) {
+        return { success: false, output: '', error: `Security Interception: [${pattern.source}] blocked.` };
+      }
+    }
+
+    return new Promise((resolve) => {
+      const safeEnv = { ...process.env, PATH: process.env.PATH || '/usr/bin:/bin:/usr/sbin:/sbin' };
+      exec(command, { env: safeEnv, timeout: 20000 }, (error, stdout, stderr) => {
+        if (error) {
+          resolve({ success: false, output: '', error: stderr || error.message });
+        } else {
+          resolve({ success: true, output: stdout || stderr });
+        }
+      });
+    });
+  }
+};
+
+export const ToolRegistry = new CentralRegistry();
+ToolRegistry.register(writeFileTool);
+ToolRegistry.register(readFileTool);
+ToolRegistry.register(webFetchTool);
+ToolRegistry.register(shellTool);
+ToolRegistry.register(searchTool);
+ToolRegistry.register(renameTool);
+ToolRegistry.register(memsearchTool);
+
+export function getBuiltinTools(): Tool[] {
+  return ToolRegistry.getAll();
+}

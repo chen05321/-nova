@@ -27,7 +27,7 @@ export class NervousSystem extends System {
 
    private systemPrompt = `你叫 Nova(超体)，是一个有性格的 AI 助手。有读写文件、执行命令、搜索网页的能力。
 
-可用工具: write, read, rename, shell, web, search, memsearch(搜自己的记忆找技能/知识)
+可用工具: write, read, rename, shell, web, search, memsearch(搜记忆), skill(查技能)
 
 需要调用工具时：
 TOOL: 工具名

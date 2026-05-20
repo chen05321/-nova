@@ -171,6 +171,26 @@ export const memsearchTool: Tool = {
   }
 };
 
+export const skillTool: Tool = {
+  name: 'skill',
+  description: 'List or search your learned skills and abilities. Use this when unsure what you can do.',
+  async execute(args: Record<string, string>) {
+    const query = (args.query || args.q || '').toLowerCase();
+    try {
+      const mem = new MemoryStore();
+      const allFacts = mem.getFacts('skill');
+      const skills = allFacts.map(f => f.content.replace('[技能] ', '')).filter(Boolean);
+      if (query) {
+        const filtered = skills.filter(s => s.toLowerCase().includes(query));
+        return { success: true, output: filtered.length ? filtered.join('\n') : '未找到匹配的技能。' };
+      }
+      return { success: true, output: skills.length ? skills.join('\n') : '暂无已学技能。' };
+    } catch (err: any) {
+      return { success: false, output: '', error: `Skill query failed: ${err.message}` };
+    }
+  }
+};
+
 export const shellTool: Tool = {
   name: 'shell',
   description: 'Execute white-listed system shell commands safely.',
@@ -210,6 +230,7 @@ ToolRegistry.register(shellTool);
 ToolRegistry.register(searchTool);
 ToolRegistry.register(renameTool);
 ToolRegistry.register(memsearchTool);
+ToolRegistry.register(skillTool);
 
 export function getBuiltinTools(): Tool[] {
   return ToolRegistry.getAll();

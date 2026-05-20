@@ -78,6 +78,10 @@ export const readFileTool: Tool = {
 
     try {
       const content = require('fs').readFileSync(file, 'utf-8');
+      const maxLen = 5000;
+      if (content.length > maxLen) {
+        return { success: true, output: content.substring(0, maxLen) + `\n\n... [文件过长，仅显示前 ${maxLen} 字符，共 ${content.length} 字符]` };
+      }
       return { success: true, output: content };
     } catch (err: any) {
       return { success: false, output: '', error: `IO Read Exception: ${err.message}` };

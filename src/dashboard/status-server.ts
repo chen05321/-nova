@@ -127,7 +127,7 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
           try { res.write(`data: ${data}\n\n`); } catch {}
         };
         sendStatus();
-        const timer = setInterval(sendStatus, 5000);
+        const timer = setInterval(sendStatus, 1000);
         req.on('close', () => clearInterval(timer));
         return;
       }

@@ -301,21 +301,22 @@ ARGS: {"参数": "值"}
     const learned = this.memory.getFacts('learned');
     for (const f of learned.slice(-2)) memories.push(`📚 ${f.content}`);
 
-    // 技能效果最多 5 条
-    const learnedSkills = this.memory.getFacts('skill').map(f => f.content.replace('[技能] ', '').split(':')[0].trim());
-    const activeEffects = learnedSkills.map(name => this.skillEffects[name]).filter(Boolean).slice(0, 5);
-    for (const e of activeEffects) memories.push(`⚡ ${e}`);
-
-      // 从记忆系统检索当前对话相关的知识
+    // 根据当前问题匹配相关技能
+    const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]?.content || '';
+    if (lastMsg.length > 5) {
+      const query = lastMsg.toLowerCase();
+      const learnedSkills = this.memory.getFacts('skill').map(f => f.content.replace('[技能] ', '').split(':')[0].trim());
+      const matched = learnedSkills.filter(name => query.includes(name.slice(0, 2))).slice(0, 3);
+      for (const name of matched) {
+        const effect = this.skillEffects[name];
+        if (effect) memories.push(`⚡ ${effect}`);
+      }
+      // 从记忆系统检索
       try {
-        const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]?.content || '';
-        if (lastMsg.length > 5) {
-          const related = await this.memory.searchAll(lastMsg, 3);
-          for (const r of related) {
-            memories.push(`📎 ${r.text.substring(0, 120)}`);
-          }
-        }
+        const related = await this.memory.searchAll(lastMsg, 3);
+        for (const r of related) memories.push(`📎 ${r.text.substring(0, 120)}`);
       } catch {}
+    }
 
       // 触发自我知识注入
       this.bus.pulse('memory:recall', { trigger: 'context' }, this.name);

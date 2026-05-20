@@ -215,7 +215,7 @@ ${currentCode.substring(0, 3000)}
         body: JSON.stringify({
           model: 'deepseek-v4-flash',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
+          max_tokens: 4096,
           temperature: 0.3
         }),
         signal: AbortSignal.timeout(30000)

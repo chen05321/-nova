@@ -292,6 +292,49 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         return;
       }
 
+      // POST: Feishu webhook / 飞书机器人接口
+      if (url.pathname === '/api/feishu/webhook' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => body += c);
+        req.on('end', async () => {
+          try {
+            const data = JSON.parse(body);
+            const text = data?.message?.content || data?.content || data?.text || '';
+            const openId = data?.sender?.sender_id?.open_id || data?.open_id || '';
+            if (!text) { json({ error: 'no content' }, 400); return; }
+
+            agent.bus.pulse('input:raw', { text, source: 'feishu' }, 'Dashboard');
+            (agent as any).memory?.addMessage?.('user', `[飞书] ${text}`);
+
+            const reply = await new Promise<string>((resolve) => {
+              const handler = (e: any) => { agent.bus.removeListener('thought:complete', handler); resolve(e.payload?.response || ''); };
+              agent.bus.once('thought:complete', handler);
+            });
+
+            if (reply && openId) {
+              const feishuKey = process.env.FEISHU_APP_ID || '';
+              if (feishuKey) {
+                const tokenResp = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ app_id: process.env.FEISHU_APP_ID, app_secret: process.env.FEISHU_APP_SECRET })
+                }).catch(() => null);
+                if (tokenResp?.ok) {
+                  const token = (await tokenResp.json() as any)?.tenant_access_token || '';
+                  await fetch('https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ receive_id: openId, msg_type: 'text', content: JSON.stringify({ text: reply.substring(0, 2000) }) })
+                  }).catch(() => {});
+                }
+              }
+            }
+            json({ ok: true });
+          } catch { json({ error: 'bad request' }, 400); }
+        });
+        return;
+      }
+
       // POST: create new session
       if (url.pathname === '/api/session/new' && req.method === 'POST') {
         const memory = (agent as any).memory;

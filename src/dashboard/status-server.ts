@@ -299,6 +299,11 @@ export function startDashboard(agent: NovaAgent, port = 3900): void {
         req.on('end', async () => {
           try {
             const data = JSON.parse(body);
+            // 飞书 URL 验证
+            if (data.type === 'url_verification' && data.challenge) {
+              json({ challenge: data.challenge });
+              return;
+            }
             const text = data?.message?.content || data?.content || data?.text || '';
             const openId = data?.sender?.sender_id?.open_id || data?.open_id || '';
             if (!text) { json({ error: 'no content' }, 400); return; }

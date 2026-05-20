@@ -18,13 +18,7 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 .heart-pulse{animation:bio-pulse 1s infinite ease-in-out}
 .bubble-text { word-break: break-all !important; word-wrap: break-word !important; white-space: pre-wrap !important; }
 
-/* 🧬 激素实时弹跳闪烁引擎 */
-@keyframes hormone-bounce-pulse {
-  0% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0rem rgba(0, 255, 242, 0)); }
-  20% { transform: scale(1.08) translateY(-2px); filter: brightness(1.5) drop-shadow(0 0 0.8rem var(--pulse-color, #00fff2)); }
-  100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 0rem rgba(0, 255, 242, 0)); }
-}
-.hormone-spike-active { animation: hormone-bounce-pulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275); transition: all 0.2s ease; }
+
 </style>
 </head>
 <body class="p-4 flex flex-col gap-4 select-none text-sm">
@@ -74,7 +68,7 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 
 <div class="panel-base p-4 rounded-2xl">
 <div class="flex justify-between items-center mb-2"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">能量</h2><span id="energy-mode" class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-300 font-mono rounded border uppercase">Normal</span></div>
-<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width:50%"></div></div>
+<div class="relative h-3.5 w-full bg-black/40 rounded-full overflow-hidden mb-1.5 border border-slate-800"><div id="energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400" style="width:50%"></div></div>
 <div class="flex justify-between text-xs font-mono text-slate-500"><span>心率: <span id="heart-rate" class="text-slate-300">60</span> bpm</span><span>债务: <span id="energy-debt" class="text-red-400">0</span></span></div></div>
 
 <div class="panel-base p-4 rounded-2xl"><h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">呼吸 (Token)</h2>
@@ -84,9 +78,9 @@ body{background:var(--bg-main);color:var(--text-primary);transition:all 0.4s eas
 <div class="panel-base p-4 rounded-2xl flex-1 flex flex-col justify-between min-h-0">
 <h2 class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider mb-2">激素</h2>
 <div class="space-y-3 font-mono text-xs">
-<div data-hormone="adrenaline"><div class="flex justify-between mb-0.5"><span class="text-slate-400">肾上腺素</span><span id="h-adrenaline">0.10</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-adrenaline" class="h-full bg-rose-500 transition-all duration-500" style="width:10%"></div></div></div>
-<div data-hormone="cortisol"><div class="flex justify-between mb-0.5"><span class="text-slate-400">皮质醇</span><span id="h-cortisol">0.20</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-cortisol" class="h-full bg-amber-500 transition-all duration-500" style="width:20%"></div></div></div>
-<div data-hormone="dopamine"><div class="flex justify-between mb-0.5"><span class="text-slate-400">多巴胺</span><span id="h-dopamine">0.50</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-dopamine" class="h-full bg-teal-400 transition-all duration-500" style="width:50%"></div></div></div></div>
+<div data-hormone="adrenaline"><div class="flex justify-between mb-0.5"><span class="text-slate-400">肾上腺素</span><span id="h-adrenaline">0.10</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-adrenaline" class="h-full bg-rose-500" style="width:10%"></div></div></div>
+<div data-hormone="cortisol"><div class="flex justify-between mb-0.5"><span class="text-slate-400">皮质醇</span><span id="h-cortisol">0.20</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-cortisol" class="h-full bg-amber-500" style="width:20%"></div></div></div>
+<div data-hormone="dopamine"><div class="flex justify-between mb-0.5"><span class="text-slate-400">多巴胺</span><span id="h-dopamine">0.50</span></div><div class="h-1 w-full bg-black/20 rounded-full overflow-hidden"><div id="b-dopamine" class="h-full bg-teal-400" style="width:50%"></div></div></div></div>
 <div class="mt-4 pt-2 border-t border-slate-800/60 text-xs font-mono text-slate-500">毒素: <span id="toxin-level" class="text-orange-400 font-bold">0%</span></div></div></section>
 
 <section class="flex-1 flex flex-col panel-base rounded-2xl overflow-hidden glow-active relative min-w-0 min-h-0">
@@ -425,16 +419,8 @@ pl.addEventListener('hormone:shift',function(e){
   var d=JSON.parse(e.data);
   var bar=document.getElementById('b-'+d.type);
   var txt=document.getElementById('h-'+d.type);
-  var container=txt?txt.parentElement:bar?bar.parentElement:null;
   if(bar){bar.style.width=(d.level*100)+'%'}
   if(txt){txt.innerText=d.level.toFixed(2)}
-  var colorMap={adrenaline:'#ff0055',cortisol:'#ffaa00',dopamine:'#00ffaa',serotonin:'#00aaff',oxytocin:'#cc00ff'};
-  if(container){
-   container.style.setProperty('--pulse-color',colorMap[d.type]||'#00fff2');
-   container.classList.remove('hormone-spike-active');
-   void container.offsetWidth;
-   container.classList.add('hormone-spike-active');
-  }
  }catch(e){}
 });
 

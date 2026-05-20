@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc && cp src/dashboard/dashboard.html dist/dashboard/",
-    "start": "while true; do node --max-old-space-size=1024 dist/cli/index.js; sleep 2; echo '[看门狗] ♻ Nova 已重启'; done",
+    "start": "node --max-old-space-size=1024 dist/cli/index.js",
     "dev": "npx tsx src/cli/index.ts",
     "prepublishOnly": "npm run build"
   },

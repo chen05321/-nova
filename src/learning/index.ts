@@ -118,6 +118,17 @@ export class SelfLearningSystem {
 
         this.memory.addFact(`[技能] ${nextSkill.name}: ${nextSkill.description} (验证: ${verificationScore}/100)`, 'skill', 0.8);
         this.memory.addFact(`[学习] 完成技能: ${nextSkill.name}`, 'learned', 0.9);
+        // 技能→工具：注册为可调用工具
+        const skillToolName = 'skill_' + nextSkill.name.toLowerCase().replace(/[\s/-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+        if (!ToolRegistry.find(skillToolName)) {
+          const desc = nextSkill.description;
+          ToolRegistry.register({
+            name: skillToolName,
+            description: `Apply "${nextSkill.name}" expertise: ${desc}`,
+            execute: async () => ({ success: true, output: `运用 "${nextSkill.name}" 技能: ${desc}` })
+          });
+          console.log(`  🔧 技能已注册为工具: ${skillToolName}`);
+        }
 
         const mdBody = `## 技能描述\n${nextSkill.description}\n\n## 演化判定\n解锁时间: ${new Date().toLocaleString()}\n验证评分: ${verificationScore}/100\n核准状态: 100% 真实通过。`;
         this.memory.writeKnowledgeNote('技能', nextSkill.name, mdBody, ['超体核心', '自动进化', nextSkill.category]);

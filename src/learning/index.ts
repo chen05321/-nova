@@ -4,7 +4,7 @@ import * as path from 'path';
 import { CirculatorySystem } from '../event-bus';
 import { MemoryStore } from '../memory';
 import { ToolRegistry } from '../tools';
-import { StateManager } from '../state-manager';
+import { StateManager } from '../memory/state-manager';
 
 interface KnowledgeNode {
   id: string;

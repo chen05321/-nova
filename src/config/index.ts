@@ -133,9 +133,9 @@ export function loadConfig(configPath?: string): NovaConfig {
     merged.llm.fast.apiKey = opencodeKey;
     merged.llm.reflective.apiKey = opencodeKey;
     merged.llm.deep.apiKey = opencodeKey;
-    merged.llm.fast.baseUrl = 'https://opencode.ai/zen/v1';
-    merged.llm.reflective.baseUrl = 'https://opencode.ai/zen/v1';
-    merged.llm.deep.baseUrl = 'https://opencode.ai/zen/v1';
+    merged.llm.fast.baseUrl = 'https://opencode.ai/zen/go';
+    merged.llm.reflective.baseUrl = 'https://opencode.ai/zen/go';
+    merged.llm.deep.baseUrl = 'https://opencode.ai/zen/go';
     console.log('  ✓ Using OpenCode proxy');
   } else if (process.env.DEEPSEEK_API_KEY) {
     merged.llm.fast.apiKey = process.env.DEEPSEEK_API_KEY;
